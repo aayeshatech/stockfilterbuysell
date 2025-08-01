@@ -1,6 +1,8 @@
-streamlit>=1.22.0
-pandas>=1.5.0
-pytz>=2022.7
-plotly>=5.15.0
-swisseph>=2.10.00
-numpy>=1.24.0
+streamlit==1.32.2
+pandas==2.1.4
+pytz==2023.3.post1
+plotly==5.18.0
+swisseph==2.10.3
+numpy==1.26.3
+markdown-it-py==2.2.0
+rich==13.7.0
