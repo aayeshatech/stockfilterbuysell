@@ -22,20 +22,19 @@ PLANET_MAPPING = {
     "HDFC": "MERCURY",
     "NIFTY": "JUPITER",
     "BANKNIFTY": "JUPITER",
-    "SENSEX": "SUN",
     "USD": "VENUS",
-    "EUR": "MERCURY",
-    "GBP": "JUPITER",
-    "INR": "VENUS"
+    "EUR": "MERCURY"
 }
 
 def get_planet(symbol):
+    """Simple planet mapping without Swiss Ephemeris"""
     for key, planet in PLANET_MAPPING.items():
         if key in symbol:
             return planet
     return "UNKNOWN"
 
 def generate_signal(symbol, now):
+    """Generate demo signals based on time"""
     planet = get_planet(symbol)
     minute = now.minute
     
@@ -71,20 +70,35 @@ def main():
     # Display Area
     placeholder = st.empty()
     
-    try:
+    while True:
         now = datetime.now(pytz.utc)
         signals = [generate_signal(symbol, now) for symbol in MARKET_DATA[market]]
         
         with placeholder.container():
             st.subheader(f"{market} Signals - {now.strftime('%H:%M:%S UTC')}")
-            signals_df = pd.DataFrame(signals)
-            st.dataframe(signals_df.style.apply(lambda x: [f"color: {x['Color']}" if x.name == 'Signal' else "" for _ in x], axis=1))
+            
+            for signal in signals:
+                st.markdown(
+                    f"""
+                    <div style='
+                        border-left: 5px solid {signal['Color']};
+                        padding: 8px;
+                        margin: 5px 0;
+                        border-radius: 5px;
+                    '>
+                        <strong>{signal['Time']}</strong> | 
+                        {signal['Symbol']} | 
+                        <span style='color:{signal['Color']};font-weight:bold'>
+                            {signal['Signal']} ({signal['Planet']})
+                        </span>
+                    </div>
+                    """,
+                    unsafe_allow_html=True
+                )
         
-        if auto_refresh:
-            time.sleep(refresh)
-            st.experimental_rerun()
-    except Exception as e:
-        st.error(f"Error generating signals: {e}")
+        if not auto_refresh:
+            break
+        time.sleep(refresh)
 
 if __name__ == "__main__":
     main()
