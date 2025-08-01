@@ -1,5 +1,3 @@
 streamlit==1.32.2
-pandas==2.1.4
-yfinance==0.2.31
-ephem==4.1.5
-# plotly==5.18.0  # Remove if charts aren't critical
+pandas==2.1.4 --only-binary pandas  # Force pre-built wheel
+pytz==2023.3
