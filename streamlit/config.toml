@@ -1,2 +1,3 @@
 [install]
 method = "pip"
+pip_args = "--only-binary :all:"
