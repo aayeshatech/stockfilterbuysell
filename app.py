@@ -209,7 +209,10 @@ def main():
                             unsafe_allow_html=True
                         )
                 
-                st.progress(min(100, int((time.time() - start_time) * 10))
+                # Fixed progress bar syntax
+                progress_value = min(100, int((time.time() - start_time) * 10))
+                st.progress(progress_value)
+                
                 st.caption(f"Last update: {now.strftime('%Y-%m-%d %H:%M:%S UTC')} | "
                           f"Processing time: {time.time()-start_time:.2f}s")
             
