@@ -1,5 +1,3 @@
 #!/bin/bash
-# Prevent conflicts by isolating installations
-python -m pip install --user --upgrade pip
-python -m pip install --user -r requirements.txt --no-deps
+pip install -r requirements.txt
 mkdir -p ephe
