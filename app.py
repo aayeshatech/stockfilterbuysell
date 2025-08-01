@@ -1,19 +1,23 @@
-import swisseph as swe
-from datetime import datetime, timedelta
-import pytz
-import requests
-import os
-from time import sleep
 import streamlit as st
 import pandas as pd
+import requests
+from datetime import datetime, timedelta
+import pytz
+import time
+import os
+
+# Check if swisseph is available, provide fallback
+try:
+    import swisseph as swe
+    SWISSEPH_AVAILABLE = True
+except ImportError:
+    SWISSEPH_AVAILABLE = False
+    st.warning("Swiss Ephemeris not available - running in demo mode")
 
 # Configuration
-EPHE_PATH = 'C:/Users/a/Downloads/swisseph-master (1)/swisseph-master/ephe'
+EPHE_PATH = './ephe'  # Default path for ephemeris files
 
-# Initialize Swiss Ephemeris
-swe.set_ephe_path(EPHE_PATH)
-
-# Planetary associations with sectors (simplified)
+# Planetary associations with sectors
 PLANETARY_RULES = {
     'SUN': ['NIFTY', 'BANKNIFTY', 'GOLD', 'SILVER', 'INDEX'],
     'MOON': ['FINANCE', 'FMCG', 'BANK', 'CURRENCY'],
@@ -26,8 +30,23 @@ PLANETARY_RULES = {
     'KETU': ['PHARMA', 'METAL', 'PSU', 'SPECIALITY']
 }
 
+def setup_swisseph():
+    """Initialize Swiss Ephemeris if available"""
+    if SWISSEPH_AVAILABLE:
+        try:
+            swe.set_ephe_path(EPHE_PATH)
+            return True
+        except Exception as e:
+            st.error(f"Error initializing Swiss Ephemeris: {e}")
+            return False
+    return False
+
 def get_planet_position(planet, date_utc):
-    """Get planet's longitude position for a given date"""
+    """Get planet's longitude position (or simulated if SwissEph not available)"""
+    if not SWISSEPH_AVAILABLE:
+        # Fallback simulation for demo purposes
+        return (date_utc.hour * 15 + date_utc.minute * 0.25) % 360  # Simulated position
+    
     jd = swe.julday(date_utc.year, date_utc.month, date_utc.day, 
                    date_utc.hour + date_utc.minute/60 + date_utc.second/3600)
     try:
@@ -46,7 +65,7 @@ def get_planet_position(planet, date_utc):
     
     flags = swe.FLG_SWIEPH | swe.FLG_SPEED
     pos, _ = swe.calc_ut(jd, planet_code, flags)
-    return pos[0]  # longitude
+    return pos[0]
 
 def get_planet_for_symbol(symbol):
     """Determine which planet rules a given symbol"""
@@ -71,34 +90,34 @@ def analyze_transits(symbols):
             current_pos = get_planet_position(planet, now_utc)
             natal_pos = current_pos  # In production, use actual natal positions
             
-            # Simple aspect detection (conjunction only in this example)
+            # Simple aspect detection
             if abs((current_pos - natal_pos) % 360) <= 3:
                 if planet in ['JUPITER', 'VENUS', 'MOON']:
                     alerts.append({
-                        'symbol': symbol,
-                        'signal': 'BUY',
-                        'planet': planet,
-                        'reason': f"Benefic {planet} transit",
-                        'time': now_utc.strftime('%Y-%m-%d %H:%M:%S UTC')
+                        'Symbol': symbol,
+                        'Signal': 'BUY',
+                        'Planet': planet,
+                        'Reason': f"Benefic {planet} transit",
+                        'Time': now_utc.strftime('%Y-%m-%d %H:%M:%S UTC')
                     })
                 elif planet in ['SATURN', 'MARS', 'RAHU', 'KETU']:
                     alerts.append({
-                        'symbol': symbol,
-                        'signal': 'SELL',
-                        'planet': planet,
-                        'reason': f"Challenging {planet} transit",
-                        'time': now_utc.strftime('%Y-%m-%d %H:%M:%S UTC')
+                        'Symbol': symbol,
+                        'Signal': 'SELL',
+                        'Planet': planet,
+                        'Reason': f"Challenging {planet} transit",
+                        'Time': now_utc.strftime('%Y-%m-%d %H:%M:%S UTC')
                     })
                 elif planet == 'SUN':
                     alerts.append({
-                        'symbol': symbol,
-                        'signal': 'HOLD',
-                        'planet': planet,
-                        'reason': f"Solar influence on {symbol}",
-                        'time': now_utc.strftime('%Y-%m-%d %H:%M:%S UTC')
+                        'Symbol': symbol,
+                        'Signal': 'HOLD',
+                        'Planet': planet,
+                        'Reason': f"Solar influence on {symbol}",
+                        'Time': now_utc.strftime('%Y-%m-%d %H:%M:%S UTC')
                     })
         except Exception as e:
-            print(f"Error analyzing {symbol}: {str(e)}")
+            st.error(f"Error analyzing {symbol}: {str(e)}")
             continue
     
     return alerts
@@ -109,13 +128,13 @@ def send_telegram_alert(alert, bot_token, chat_id):
         'BUY': '🟢',
         'SELL': '🔴',
         'HOLD': '🟡'
-    }.get(alert['signal'], '⚪')
+    }.get(alert['Signal'], '⚪')
     
     message = (
-        f"{emoji} <b>{alert['signal']} {alert['symbol']}</b>\n"
-        f"Planet: {alert['planet']}\n"
-        f"Reason: {alert['reason']}\n"
-        f"Time: {alert['time']}"
+        f"{emoji} <b>{alert['Signal']} {alert['Symbol']}</b>\n"
+        f"Planet: {alert['Planet']}\n"
+        f"Reason: {alert['Reason']}\n"
+        f"Time: {alert['Time']}"
     )
     
     url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
@@ -137,64 +156,97 @@ def process_uploaded_files(uploaded_files):
     """Process uploaded files to extract symbols"""
     symbols = set()
     for uploaded_file in uploaded_files:
-        content = uploaded_file.getvalue().decode("utf-8")
-        file_symbols = [s.strip() for s in content.split(',') if s.strip()]
-        symbols.update(file_symbols)
+        try:
+            content = uploaded_file.getvalue().decode("utf-8")
+            file_symbols = [s.strip() for s in content.split(',') if s.strip()]
+            symbols.update(file_symbols)
+        except Exception as e:
+            st.error(f"Error processing {uploaded_file.name}: {str(e)}")
     return list(symbols)
 
 def main():
-    st.title("Planetary Transit Stock Alert System")
-    st.write("Upload your symbol files and configure alerts")
-    
-    # File upload section
-    uploaded_files = st.file_uploader(
-        "Upload your symbol files (CSV/TXT)", 
-        type=['txt', 'csv'],
-        accept_multiple_files=True
+    st.set_page_config(
+        page_title="Planetary Transit Alerts",
+        page_icon="✨",
+        layout="wide"
     )
     
-    # Telegram configuration
-    with st.expander("Telegram Alert Configuration"):
-        bot_token = st.text_input("Telegram Bot Token", type="password")
-        chat_id = st.text_input("Telegram Chat ID")
-        test_alert = st.button("Send Test Alert")
-        
-        if test_alert and bot_token and chat_id:
-            test_result = send_telegram_alert({
-                'symbol': 'TEST',
-                'signal': 'HOLD',
-                'planet': 'SUN',
-                'reason': 'Test alert',
-                'time': datetime.now(pytz.utc).strftime('%Y-%m-%d %H:%M:%S UTC')
-            }, bot_token, chat_id)
-            if test_result:
-                st.success("Test alert sent successfully!")
+    st.title("📈 Planetary Transit Stock Alert System")
+    st.write("Analyze stock symbols based on planetary transits")
     
-    # Analysis controls
+    # Initialize Swiss Ephemeris
+    if SWISSEPH_AVAILABLE:
+        setup_swisseph()
+    
+    # File upload section
+    with st.expander("📤 Upload Symbol Files", expanded=True):
+        uploaded_files = st.file_uploader(
+            "Upload your symbol files (CSV/TXT)", 
+            type=['txt', 'csv'],
+            accept_multiple_files=True,
+            help="Upload files containing comma-separated stock symbols"
+        )
+    
+    # Telegram configuration
+    with st.expander("⚙️ Telegram Configuration"):
+        bot_token = st.text_input("Bot Token", type="password", help="Get from @BotFather")
+        chat_id = st.text_input("Chat ID", help="Get from @getidsbot")
+        
+        if st.button("Test Telegram Connection"):
+            if not bot_token or not chat_id:
+                st.warning("Please enter both Bot Token and Chat ID")
+            else:
+                test_result = send_telegram_alert({
+                    'Symbol': 'TEST',
+                    'Signal': 'HOLD',
+                    'Planet': 'SUN',
+                    'Reason': 'Test alert',
+                    'Time': datetime.now(pytz.utc).strftime('%Y-%m-%d %H:%M:%S UTC')
+                }, bot_token, chat_id)
+                if test_result:
+                    st.success("✅ Test alert sent successfully!")
+    
+    # Analysis section
     if uploaded_files:
         symbols = process_uploaded_files(uploaded_files)
-        st.success(f"Loaded {len(symbols)} unique symbols")
+        st.success(f"📊 Loaded {len(symbols)} unique symbols")
         
-        if st.button("Run Analysis Now"):
-            with st.spinner("Analyzing planetary transits..."):
+        if st.button("🚀 Run Analysis Now"):
+            with st.spinner("🔭 Analyzing planetary transits..."):
                 alerts = analyze_transits(symbols)
                 
                 if alerts:
-                    st.subheader(f"Generated {len(alerts)} Alerts")
+                    st.subheader(f"📢 Generated {len(alerts)} Alerts")
                     df = pd.DataFrame(alerts)
-                    st.dataframe(df)
                     
+                    # Display alerts in expandable sections by signal type
+                    for signal_type in ['BUY', 'SELL', 'HOLD']:
+                        signal_alerts = df[df['Signal'] == signal_type]
+                        if not signal_alerts.empty:
+                            with st.expander(f"{signal_type} Signals ({len(signal_alerts)})"):
+                                st.dataframe(
+                                    signal_alerts,
+                                    column_config={
+                                        "Time": st.column_config.DatetimeColumn(
+                                            "Time",
+                                            format="YYYY-MM-DD HH:mm:ss UTC"
+                                        )
+                                    },
+                                    use_container_width=True
+                                )
+                    
+                    # Telegram alerts
                     if bot_token and chat_id:
-                        with st.spinner("Sending alerts to Telegram..."):
+                        with st.spinner(f"📤 Sending {len(alerts)} alerts to Telegram..."):
                             success_count = 0
-                            for alert in alerts:
+                            for _, alert in df.iterrows():
                                 if send_telegram_alert(alert, bot_token, chat_id):
                                     success_count += 1
-                            st.info(f"Sent {success_count}/{len(alerts)} alerts to Telegram")
+                            st.info(f"📨 Sent {success_count}/{len(alerts)} alerts to Telegram")
                 else:
-                    st.info("No significant transits detected at this time")
+                    st.info("🌌 No significant transits detected at this time")
     else:
-        st.warning("Please upload symbol files to begin")
+        st.warning("📂 Please upload symbol files to begin analysis")
 
 if __name__ == "__main__":
     main()
