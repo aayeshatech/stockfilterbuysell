@@ -1,10 +1,13 @@
-# Stock Filter Buy/Sell
-A Streamlit app for generating demo market signals based on planetary associations.
+# Market Astro Signals
 
-## Deployment
-Deployed on [Streamlit Community Cloud](https://your-app-url.streamlit.app).
+A Streamlit app that generates mock trading signals based on planetary associations.
 
-## Setup
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/your-username/stockfilterbuysell.git
+## Features
+- Real-time signal generation for Equity, Commodities, Indices, and Forex.
+- Auto-refresh dashboard.
+- Planet-symbol mapping logic.
+
+## Installation
+```bash
+pip install -r requirements.txt
+streamlit run app.py
