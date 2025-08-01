@@ -1,13 +1,9 @@
-# Core packages with exact versions
+# Core requirements
 streamlit==1.32.2
 pandas==2.1.4
 
-# Explicit dependency tree
+# Explicit dependencies to prevent reinstallation
 rich==14.1.0
 markdown-it-py==3.0.0
-mdurl==0.1.2
 Pygments==2.19.2
-
-# Avoid compilation
---only-binary pandas
---no-deps  # Prevents automatic dependency resolution
+mdurl==0.1.2
