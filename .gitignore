@@ -1,4 +1,10 @@
-venv/
+# Python
 __pycache__/
 *.pyc
-.DS_Store
+venv/
+.env
+
+# Streamlit
+*.log
+*.csv
+*.data
