@@ -1,5 +1,4 @@
-Push to GitHub:
-```bash
-git add README.md
-git commit -m "Add README"
-git push
+streamlit==1.32.2
+pandas==2.1.4
+numpy==1.26.4  # Added to ensure pandas builds correctly
+pytz
