@@ -1,8 +1,6 @@
-FROM python:3.9-slim  # Slim image
-
+FROM python:3.9-slim
 WORKDIR /app
 COPY requirements.txt .
-RUN pip install --no-cache-dir --only-binary :all: -r requirements.txt  # Force wheels
-
+RUN pip install --no-cache-dir --only-binary pandas -r requirements.txt
 COPY . .
 CMD ["streamlit", "run", "app.py"]
