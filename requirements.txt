@@ -1,9 +1,13 @@
-# Core requirements with pinned versions
+# Core packages with exact versions
 streamlit==1.32.2
-pandas==2.1.4 --only-binary pandas
-pytz==2023.3
+pandas==2.1.4
 
-# Add explicit dependencies to prevent conflicts
-markdown-it-py==3.0.0
+# Explicit dependency tree
 rich==14.1.0
+markdown-it-py==3.0.0
+mdurl==0.1.2
 Pygments==2.19.2
+
+# Avoid compilation
+--only-binary pandas
+--no-deps  # Prevents automatic dependency resolution
