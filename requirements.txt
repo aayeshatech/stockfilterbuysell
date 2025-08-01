@@ -1,3 +1,9 @@
+# Core requirements with pinned versions
 streamlit==1.32.2
-pandas==2.1.4 --only-binary pandas  # Force pre-built wheel
+pandas==2.1.4 --only-binary pandas
 pytz==2023.3
+
+# Add explicit dependencies to prevent conflicts
+markdown-it-py==3.0.0
+rich==14.1.0
+Pygments==2.19.2
