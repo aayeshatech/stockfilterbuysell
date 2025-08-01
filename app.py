@@ -1,5 +1,5 @@
 """
-Global Markets Astro Trading Dashboard - Focus on Commodities & Indices
+Global Markets Astro Dashboard with Color-Coded Transit Signals
 """
 
 import streamlit as st
@@ -17,7 +17,7 @@ from typing import Dict, List, Tuple
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# ================== GLOBAL MARKETS CONFIGURATION ==================
+# ================== GLOBAL MARKETS CONFIG ==================
 GLOBAL_SYMBOLS = [
     "GC=F",  # Gold
     "SI=F",  # Silver
@@ -30,22 +30,8 @@ GLOBAL_SYMBOLS = [
 ]
 
 PLANET_MAPPING = {
-    # Commodities
-    "GC=F": "Sun", "GOLD": "Sun", "XAUUSD": "Sun",
-    "SI=F": "Moon", "SILVER": "Moon", "XAGUSD": "Moon",
-    "CL=F": "Mars", "CRUDE": "Mars", "OIL": "Mars",
-    "NG=F": "Venus", "NATURALGAS": "Venus",
-    
-    # Crypto
-    "BTC": "Uranus", "BTC-USD": "Uranus",
-    
-    # Indices
-    "^DJI": "Jupiter", "DOW": "Jupiter",
-    "^GSPC": "Saturn", "SPX": "Saturn",
-    "^IXIC": "Mercury", "NASDAQ": "Mercury",
-    
-    # Default
-    "DEFAULT": "Sun"
+    "GC=F": "Sun", "SI=F": "Moon", "CL=F": "Mars", "NG=F": "Venus",
+    "BTC-USD": "Uranus", "^DJI": "Jupiter", "^GSPC": "Saturn", "^IXIC": "Mercury"
 }
 
 # Signal configurations
@@ -68,7 +54,7 @@ PLANET_EMOJIS = {
 # ================== CORE FUNCTIONS ==================
 @st.cache_data(ttl=60, show_spinner=False)
 def get_live_price(symbol: str) -> float:
-    """Cached price fetch with enhanced error handling"""
+    """Get live market price"""
     try:
         clean_symbol = symbol.replace("^", "").replace("=F", "")
         data = yf.Ticker(clean_symbol).history(period="1d", interval="1m", timeout=5)
@@ -79,7 +65,7 @@ def get_live_price(symbol: str) -> float:
 
 @lru_cache(maxsize=128)
 def get_planet_transits(planet: str, timestamp: float) -> Dict:
-    """Get current planetary positions and upcoming transits"""
+    """Calculate planetary transits and strengths"""
     try:
         now = datetime.fromtimestamp(timestamp, pytz.utc)
         planet_obj = getattr(ephem, planet)()
@@ -89,7 +75,7 @@ def get_planet_transits(planet: str, timestamp: float) -> Dict:
         planet_obj.compute(observer)
         current_strength = float(planet_obj.alt / (ephem.pi/2))
         
-        # Calculate next 3 transits today
+        # Calculate next 3 transits
         transits = []
         transit_time = observer.next_transit(planet_obj)
         
@@ -116,71 +102,37 @@ def get_planet_transits(planet: str, timestamp: float) -> Dict:
         }
 
 def get_planet_effect(planet: str, strength: float, in_transit: bool) -> str:
-    """Get market effect description for planetary position"""
+    """Get market effect description"""
     effects = {
-        "Sun": {
-            "high": "Strong bullish energy (Buy commodities)",
-            "low": "Lack of direction (Reduce positions)",
-            "transit": "High volatility expected (Trade carefully)"
-        },
-        "Moon": {
-            "high": "Emotional buying (Short-term trades)",
-            "low": "Indecisive markets (Avoid new entries)",
-            "transit": "Quick reversals likely (Watch pivots)"
-        },
-        "Mars": {
-            "high": "Strong momentum (Trend following)",
-            "low": "Energy depletion (Avoid chasing)",
-            "transit": "Potential breakouts (Set alerts)"
-        },
-        "Venus": {
-            "high": "Harmonious trading (Smooth trends)",
-            "low": "Choppy conditions (Reduce size)",
-            "transit": "Support/resistance tests likely)"
-        },
-        "Jupiter": {
-            "high": "Expansion phase (Position trades)",
-            "low": "Growth stalled (Take profits)",
-            "transit": "Major moves possible (Watch volume)"
-        }
+        "Sun": {"high": "Bullish", "low": "Caution", "transit": "Volatile"},
+        "Moon": {"high": "Active", "low": "Uncertain", "transit": "Reversals"},
+        "Mars": {"high": "Strong", "low": "Weak", "transit": "Breakouts"},
+        "Venus": {"high": "Smooth", "low": "Choppy", "transit": "Tests"},
+        "Jupiter": {"high": "Expanding", "low": "Stalled", "transit": "Moves"},
+        "Saturn": {"high": "Stable", "low": "Restrictive", "transit": "Pressure"},
+        "Mercury": {"high": "Clear", "low": "Confused", "transit": "Changes"},
+        "Uranus": {"high": "Innovative", "low": "Stuck", "transit": "Shifts"}
     }
     
-    base_effect = effects.get(planet, {
-        "high": "Positive influence (Look for entries)",
-        "low": "Negative influence (Consider exits)",
-        "transit": "Increased activity (Trade cautiously)"
-    })
-    
-    if in_transit:
-        return base_effect["transit"]
-    return base_effect["high"] if strength > 0.7 else base_effect["low"] if strength < 0.3 else "Neutral influence (Hold positions)"
+    base = effects.get(planet, {"high": "Positive", "low": "Negative", "transit": "Active"})
+    return base["transit"] if in_transit else base["high"] if strength > 0.7 else base["low"] if strength < 0.3 else "Neutral"
 
 def get_planet(symbol: str) -> str:
     """Get planet for symbol"""
-    symbol_upper = symbol.upper()
-    for key, planet in PLANET_MAPPING.items():
-        if key in symbol_upper:
-            return planet
-    return PLANET_MAPPING["DEFAULT"]
+    return PLANET_MAPPING.get(symbol, "Sun")
 
 def calculate_signal(strength: float, planet: str, in_transit: bool) -> Tuple[str, str]:
-    """Determine trading signal based on planetary position"""
+    """Determine trading signal"""
     if in_transit:
-        if strength > 0.75:
-            return "STRONG_BUY", f"Strong {planet} transit - Excellent entry point"
-        elif strength < 0.25:
-            return "STRONG_SELL", f"Critical {planet} transit - Exit opportunity"
-        return "WARNING", f"{planet} transit - High volatility expected"
+        if strength > 0.75: return "STRONG_BUY", f"Strong {planet} transit - Buy"
+        elif strength < 0.25: return "STRONG_SELL", f"Critical {planet} transit - Sell"
+        return "WARNING", f"{planet} transit - Caution"
     
-    if strength > 0.8:
-        return "STRONG_BUY", f"Very favorable {planet} alignment"
-    elif strength > 0.6:
-        return "BUY", f"Positive {planet} influence"
-    elif strength < 0.2:
-        return "STRONG_SELL", f"Critical {planet} opposition"
-    elif strength < 0.4:
-        return "SELL", f"Negative {planet} aspects"
-    return "HOLD", f"Neutral {planet} influence"
+    if strength > 0.8: return "STRONG_BUY", f"Favorable {planet} - Strong Buy"
+    elif strength > 0.6: return "BUY", f"Positive {planet} - Buy"
+    elif strength < 0.2: return "STRONG_SELL", f"Negative {planet} - Strong Sell"
+    elif strength < 0.4: return "SELL", f"Challenging {planet} - Sell"
+    return "HOLD", f"Neutral {planet} - Hold"
 
 def fetch_market_data(symbol: str, now: datetime) -> Dict:
     """Get all data for a market symbol"""
@@ -205,21 +157,21 @@ def fetch_market_data(symbol: str, now: datetime) -> Dict:
         "next_transits": transits["next_transits"],
         "in_transit": transits["in_transit"],
         "effect": transits["effect"],
-        "planet_emoji": PLANET_EMOJIS.get(planet, "🪐")
+        "planet_emoji": PLANET_EMOJIS.get(planet, "🪐"),
+        "signal_color": "green" if "BUY" in signal else "red" if "SELL" in signal else "gray"
     }
 
 def fetch_all_markets(symbols: List[str], now: datetime) -> List[Dict]:
-    """Fetch data for all markets in parallel"""
+    """Fetch data for all markets"""
     with ThreadPoolExecutor(max_workers=8) as executor:
-        results = list(executor.map(lambda s: fetch_market_data(s, now), symbols))
-        return sorted(results, key=lambda x: x["strength"], reverse=True)
+        return list(executor.map(lambda s: fetch_market_data(s, now), symbols))
 
 # ================== STREAMLIT UI ==================
 def main():
     st.set_page_config(
-        page_title="Global Markets Astro Dashboard",
+        page_title="Global Astro Trader",
         layout="wide",
-        page_icon="🌎",
+        page_icon="🌐",
         initial_sidebar_state="expanded"
     )
     
@@ -230,217 +182,142 @@ def main():
             border-radius: 10px;
             padding: 15px;
             margin-bottom: 15px;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
             border-left: 5px solid;
         }
-        .strong-buy { border-color: #00aa00; background-color: #f0fff0; }
-        .buy { border-color: #00cc00; background-color: #e6ffe6; }
-        .strong-sell { border-color: #aa0000; background-color: #ffe6e6; }
-        .sell { border-color: #cc0000; background-color: #fff0f0; }
-        .warning { border-color: #ffaa00; background-color: #fff9e6; }
-        .hold { border-color: #888888; background-color: #f5f5f5; }
-        .transit-active {
-            animation: pulse 2s infinite;
-            border: 2px solid #0066cc;
+        .signal-buy { border-color: #00cc00; background-color: #e6ffe6; }
+        .signal-sell { border-color: #cc0000; background-color: #ffe6e6; }
+        .signal-hold { border-color: #666666; background-color: #f5f5f5; }
+        .transit-timeline {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 12px;
+            margin: 8px 0;
         }
-        @keyframes pulse {
-            0% { box-shadow: 0 0 0 0 rgba(0,150,255,0.4); }
-            70% { box-shadow: 0 0 0 10px rgba(0,150,255,0); }
-            100% { box-shadow: 0 0 0 0 rgba(0,150,255,0); }
+        .transit-item {
+            padding: 8px;
+            margin: 4px 0;
+            border-radius: 6px;
+            border-left: 4px solid;
         }
-        .price-up { color: #00aa00; font-weight: bold; }
-        .price-down { color: #cc0000; font-weight: bold; }
-        .price-neutral { color: #888888; }
-        .section-title { margin-top: 30px; margin-bottom: 15px; }
+        .buy-transit { border-color: #00aa00; background-color: #f0fff0; }
+        .sell-transit { border-color: #aa0000; background-color: #fff0f0; }
+        .neutral-transit { border-color: #666666; background-color: #f8f8f8; }
+        .planet-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
     </style>
     """, unsafe_allow_html=True)
     
     # Sidebar controls
     with st.sidebar:
         st.title("🌍 Market Controls")
-        
-        # Symbol selection
         selected_symbols = st.multiselect(
-            "Select Markets",
+            "Select Markets", 
             GLOBAL_SYMBOLS,
             default=GLOBAL_SYMBOLS
         )
-        
-        # Display filters
-        st.markdown("---")
-        st.markdown("**Signal Filters**")
-        min_confidence = st.slider(
-            "Minimum Confidence", 
-            0, 100, 50
-        )
-        
-        signal_filter = st.multiselect(
-            "Show Signals",
-            ["STRONG_BUY", "BUY", "WARNING", "HOLD", "SELL", "STRONG_SELL"],
-            default=["STRONG_BUY", "BUY", "STRONG_SELL", "SELL"]
-        )
-        
-        # Live mode controls
-        st.markdown("---")
-        st.markdown("**Live Mode Settings**")
-        live_mode = st.checkbox("Enable Live Updates", True)
-        refresh_rate = st.selectbox(
-            "Update Frequency",
-            [15, 30, 60, 120],
-            index=1
-        )
-        
-        # Current time display
-        st.markdown("---")
-        current_time = datetime.now(pytz.utc)
-        st.markdown(f"**System Time:** {current_time.strftime('%Y-%m-%d %H:%M:%S UTC')}")
+        live_mode = st.checkbox("Live Mode", True)
+        refresh_rate = st.selectbox("Refresh (sec)", [15, 30, 60], index=1)
+        st.markdown(f"**Last Update:** {datetime.now(pytz.utc).strftime('%H:%M:%S UTC')}")
     
-    # Main content area
-    st.title("🌐 Global Markets Astro Dashboard")
-    st.caption("Real-time planetary analysis for commodities and major indices")
-    
-    # Create placeholder for dynamic content
-    content_placeholder = st.empty()
+    # Main content
+    st.title("🌌 Planetary Trading Signals")
+    content = st.empty()
     
     try:
         while True:
             start_time = time.time()
             now = datetime.now(pytz.utc)
+            market_data = fetch_all_markets(selected_symbols, now)
             
-            # Fetch data
-            with st.spinner("Analyzing planetary positions..."):
-                market_data = fetch_all_markets(selected_symbols, now)
-            
-            # Filter data
-            filtered_data = [
-                d for d in market_data 
-                if (d["strength"] >= min_confidence/100) and 
-                (d["signal"] in signal_filter)
-            ]
-            
-            # Display in placeholder
-            with content_placeholder.container():
-                # Current Planetary Status
-                st.markdown("### 🌠 Current Planetary Positions")
-                
-                # Get unique planets
-                planet_status = {}
-                for data in market_data:
-                    if data["planet"] not in planet_status:
-                        planet_status[data["planet"]] = {
-                            "emoji": data["planet_emoji"],
-                            "strength": data["strength"],
-                            "in_transit": data["in_transit"],
-                            "next_transit": data["next_transits"][0]
-                        }
-                
-                # Display planet cards
-                cols = st.columns(len(planet_status))
-                for i, (planet, info) in enumerate(planet_status.items()):
-                    with cols[i % len(cols)]:
-                        transit_class = "transit-active" if info["in_transit"] else ""
+            with content.container():
+                # Current Signals
+                st.subheader("📈 Active Market Signals")
+                cols = st.columns(4)
+                for i, data in enumerate(market_data):
+                    with cols[i % 4]:
+                        signal_class = f"signal-{data['signal'].lower().replace('strong_', '').replace('_', '-')}"
                         st.markdown(f"""
-                        <div class="market-card {transit_class}">
-                            <div style="display:flex; align-items:center; gap:10px;">
-                                <span style="font-size:1.5rem">{info['emoji']}</span>
-                                <h3>{planet}</h3>
+                        <div class="market-card {signal_class}">
+                            <div class="planet-header">
+                                <span style="font-size:1.2em">{data['planet_emoji']}</span>
+                                <h3>{data['symbol']}</h3>
                             </div>
-                            <p>Strength: {info['strength']:.0%}</p>
-                            <p>Status: {'In Transit' if info['in_transit'] else 'Normal'}</p>
-                            <p>Next Transit: {info['next_transit'].strftime('%H:%M UTC')}</p>
+                            <p><strong>Price:</strong> {data['price']:,.2f if data['price'] > 0 else 'N/A'}</p>
+                            <p><strong style="color:{data['signal_color']}">
+                                {EYE_SYMBOLS[data['signal']]} {data['signal'].replace('_', ' ')}
+                            </strong></p>
+                            <p><small>{data['reason']}</small></p>
                         </div>
                         """, unsafe_allow_html=True)
                 
-                # Active Market Signals
-                st.markdown("### 📊 Active Market Signals")
+                # Transit Timeline
+                st.subheader("⏳ Planetary Transit Timeline (Next 12 Hours)")
                 
-                if not filtered_data:
-                    st.warning("No strong signals at current confidence level")
-                else:
-                    # Group by signal type
-                    signal_groups = {sig: [] for sig in EYE_SYMBOLS.keys()}
-                    for data in filtered_data:
-                        signal_groups[data["signal"]].append(data)
-                    
-                    for signal_type, signals in signal_groups.items():
-                        if signals:
-                            st.markdown(f"#### {EYE_SYMBOLS[signal_type]} {signal_type.replace('_', ' ')} Signals")
-                            
-                            num_cols = min(4, max(2, 6 - len(signals)//3))
-                            cols = st.columns(num_cols)
-                            
-                            for i, data in enumerate(signals):
-                                with cols[i % num_cols]:
-                                    card_class = signal_type.lower().replace("_", "-")
-                                    price_display = f"{data['price']:,.2f}" if data['price'] > 0 else "N/A"
-                                    st.markdown(f"""
-                                    <div class="market-card {card_class}">
-                                        <div style="display:flex; align-items:center; gap:10px;">
-                                            <span style="font-size:1.2rem">{data['planet_emoji']}</span>
-                                            <h4>{data['symbol']}</h4>
-                                        </div>
-                                        <p>Price: <span class="price-{'up' if data['strength'] > 0.7 else 'down' if data['strength'] < 0.3 else 'neutral'}">{price_display}</span></p>
-                                        <p><strong>{EYE_SYMBOLS[data['signal']]} {data['signal'].replace('_', ' ')}</strong></p>
-                                        <p>Confidence: {data['strength']:.0%}</p>
-                                        <small>{data['reason']}</small>
-                                        <div style="margin-top:10px; padding:8px; background:#f8f9fa; border-radius:5px;">
-                                            <small>Next Transit: {data['next_transits'][0].strftime('%H:%M UTC')}</small>
-                                        </div>
-                                    </div>
-                                    """, unsafe_allow_html=True)
-                
-                # Upcoming Transit Schedule
-                st.markdown("### ⏳ Upcoming Planetary Transits (Next 12 Hours)")
-                
-                # Collect all upcoming transits
-                upcoming_transits = []
+                # Collect all upcoming transits with signals
+                transit_events = []
                 for data in market_data:
-                    for transit in data["next_transits"]:
-                        if (transit - now).total_seconds() < 12*3600:
-                            upcoming_transits.append({
-                                "time": transit,
-                                "planet": data["planet"],
+                    for transit_time in data["next_transits"]:
+                        if (transit_time - now).total_seconds() < 12*3600:
+                            # Predict signal at transit time
+                            transit_strength = 0.8 if data["strength"] > 0.7 else 0.2 if data["strength"] < 0.3 else 0.5
+                            transit_signal, _ = calculate_signal(
+                                transit_strength,
+                                data["planet"],
+                                True
+                            )
+                            transit_events.append({
+                                "time": transit_time,
                                 "symbol": data["symbol"],
-                                "emoji": data["planet_emoji"]
+                                "planet": data["planet"],
+                                "emoji": data["planet_emoji"],
+                                "signal": transit_signal,
+                                "color": "green" if "BUY" in transit_signal else "red" if "SELL" in transit_signal else "gray"
                             })
                 
-                if upcoming_transits:
-                    # Sort by time and group by planet
-                    upcoming_transits.sort(key=lambda x: x["time"])
-                    
-                    # Display in timeline
-                    for transit in upcoming_transits:
-                        time_diff = (transit["time"] - now).total_seconds()/3600
-                        st.markdown(f"""
-                        <div class="market-card">
-                            <div style="display:flex; align-items:center; gap:10px;">
-                                <span style="font-size:1.2rem">{transit['emoji']}</span>
+                # Sort and display
+                transit_events.sort(key=lambda x: x["time"])
+                for event in transit_events:
+                    time_diff = (event["time"] - now).total_seconds()/3600
+                    transit_class = "buy-transit" if "BUY" in event["signal"] else "sell-transit" if "SELL" in event["signal"] else "neutral-transit"
+                    st.markdown(f"""
+                    <div class="transit-timeline">
+                        <div class="transit-item {transit_class}">
+                            <div style="display:flex; justify-content:space-between;">
                                 <div>
-                                    <strong>{transit['planet']} Transit</strong>
-                                    <p>{transit['symbol']} in {time_diff:.1f} hours</p>
-                                    <small>{transit['time'].strftime('%H:%M UTC')}</small>
+                                    <strong>{event['symbol']}</strong> - {event['planet']} {event['emoji']}
+                                </div>
+                                <div>
+                                    {event['time'].strftime('%H:%M UTC')}
+                                </div>
+                            </div>
+                            <div style="display:flex; justify-content:space-between; margin-top:6px;">
+                                <div>
+                                    Signal: <strong style="color:{event['color']}">
+                                        {EYE_SYMBOLS[event['signal']]} {event['signal'].replace('_', ' ')}
+                                    </strong>
+                                </div>
+                                <div>
+                                    In <strong>{time_diff:.1f} hours</strong>
                                 </div>
                             </div>
                         </div>
-                        """, unsafe_allow_html=True)
-                else:
-                    st.info("No significant planetary transits in next 12 hours")
+                    </div>
+                    """, unsafe_allow_html=True)
                 
-                # Footer with performance info
-                st.markdown("---")
-                st.caption(f"""
-                Last update: {now.strftime('%Y-%m-%d %H:%M:%S UTC')} | 
-                Processed {len(selected_symbols)} markets in {time.time()-start_time:.2f}s | 
-                Showing {len(filtered_data)} signals
-                """)
+                # Footer
+                st.caption(f"Updated: {now.strftime('%Y-%m-%d %H:%M:%S UTC')} | Processing time: {time.time()-start_time:.2f}s")
             
-            if not live_mode:
-                break
+            if not live_mode: break
             time.sleep(refresh_rate)
     
     except Exception as e:
-        logger.error(f"App error: {str(e)}")
-        st.error("System error - please try again later")
+        logger.error(f"Error: {str(e)}")
+        st.error("System error - please refresh")
         st.exception(e)
 
 if __name__ == "__main__":
