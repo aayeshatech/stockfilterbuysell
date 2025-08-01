@@ -1,13 +1,4 @@
-# Use pre-built wheels for all packages
---only-binary :all:
-
-# Core requirements
+# Production-grade requirements
 streamlit==1.32.2
-pandas==2.1.4 ; python_version < '3.13'
-polars==0.19.12 ; python_version >= '3.13'  # Fallback for newer Python
-
-# Pinned dependencies
-rich==14.1.0
-markdown-it-py==3.0.0
-Pygments==2.19.2
-mdurl==0.1.2
+polars[all]==0.19.12  # Faster pandas replacement
+types-python-dateutil==2.8.19  # Type stubs
