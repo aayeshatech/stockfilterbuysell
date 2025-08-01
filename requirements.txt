@@ -2,6 +2,4 @@ streamlit==1.32.2
 pandas==2.1.4
 yfinance==0.2.31
 ephem==4.1.5
-plotly==5.18.0
-pytz==2023.3
-python-telegram-bot==20.3  # Optional
+# plotly==5.18.0  # Remove if charts aren't critical
