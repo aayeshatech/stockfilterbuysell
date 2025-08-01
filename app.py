@@ -4,12 +4,10 @@ import requests
 from datetime import datetime, timedelta
 import pytz
 import time
-import os
-import numpy as np
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
-# Check if swisseph is available
+# Swiss Ephemeris setup
 try:
     import swisseph as swe
     SWISSEPH_AVAILABLE = True
@@ -19,31 +17,35 @@ except ImportError:
 
 # Configuration
 EPHE_PATH = './ephe'
+if SWISSEPH_AVAILABLE:
+    swe.set_ephe_path(EPHE_PATH)
 
-# Planetary associations
-PLANETARY_RULES = {
-    'SUN': ['NIFTY', 'BANKNIFTY', 'GOLD', 'SILVER', 'INDEX'],
-    'MOON': ['FINANCE', 'FMCG', 'BANK', 'CURRENCY'],
-    'MERCURY': ['IT', 'TECH', 'PHARMA', 'MEDIA', 'COMM'],
-    'VENUS': ['CONSUMER', 'AUTO', 'REALTY', 'LUXURY'],
-    'MARS': ['METAL', 'ENERGY', 'OIL', 'DEFENSE'],
-    'JUPITER': ['BANK', 'FINANCE', 'FMCG', 'EDUCATION'],
-    'SATURN': ['INFRA', 'COMMODITIES', 'STEEL', 'CEMENT'],
-    'RAHU': ['CRYPTO', 'VIX', 'SPECULATIVE', 'NEWAGE'],
-    'KETU': ['PHARMA', 'METAL', 'PSU', 'SPECIALITY']
+# Market categories with example symbols
+MARKET_CATEGORIES = {
+    "Equity": ["RELIANCE", "TATASTEEL", "HDFCBANK", "INFY", "TCS"],
+    "Commodity": ["GOLD", "SILVER", "CRUDEOIL", "COPPER", "NATURALGAS"],
+    "Index": ["NIFTY", "BANKNIFTY", "FINNIFTY", "SENSEX", "NIFTYMIDCAP"],
+    "Forex": ["USDINR", "EURINR", "GBPINR", "JPYINR", "AUDINR"]
 }
 
-# Initialize Swiss Ephemeris
-if SWISSEPH_AVAILABLE:
-    try:
-        swe.set_ephe_path(EPHE_PATH)
-    except Exception as e:
-        st.error(f"Error initializing Swiss Ephemeris: {e}")
+# Planetary rulerships
+PLANETARY_RULES = {
+    'SUN': ["GOLD", "SILVER", "INDEX"],
+    'MOON': ["CURRENCY", "FMCG", "BANK"],
+    'MERCURY': ["IT", "TECH", "PHARMA"],
+    'VENUS': ["LUXURY", "AUTO", "REALTY"],
+    'MARS': ["METAL", "DEFENSE", "ENERGY"],
+    'JUPITER': ["BANK", "FINANCE", "EDUCATION"],
+    'SATURN': ["INFRA", "COMMODITIES", "STEEL"],
+    'RAHU': ["CRYPTO", "SPECULATIVE"],
+    'KETU': ["PHARMA", "PSU"]
+}
 
 def get_planet_position(planet, date_utc):
-    """Get planet's longitude position"""
+    """Get planet's longitude with degree, minute, second"""
     if not SWISSEPH_AVAILABLE:
-        return (date_utc.hour * 15 + date_utc.minute * 0.25) % 360
+        deg = (date_utc.hour * 15 + date_utc.minute * 0.25) % 360
+        return deg, int(deg), int((deg % 1) * 60), int(((deg % 1) * 60 % 1) * 60)
     
     jd = swe.julday(date_utc.year, date_utc.month, date_utc.day, 
                    date_utc.hour + date_utc.minute/60 + date_utc.second/3600)
@@ -53,21 +55,22 @@ def get_planet_position(planet, date_utc):
         if planet == 'RAHU':
             flags = swe.FLG_SWIEPH | swe.FLG_SPEED
             pos, _ = swe.calc_ut(jd, swe.MEAN_NODE, flags)
-            return pos[0]
         elif planet == 'KETU':
             flags = swe.FLG_SWIEPH | swe.FLG_SPEED
             pos, _ = swe.calc_ut(jd, swe.MEAN_NODE, flags)
-            return (pos[0] + 180) % 360
+            pos[0] = (pos[0] + 180) % 360
         else:
             raise ValueError(f"Unknown planet: {planet}")
+    else:
+        flags = swe.FLG_SWIEPH | swe.FLG_SPEED
+        pos, _ = swe.calc_ut(jd, planet_code, flags)
     
-    flags = swe.FLG_SWIEPH | swe.FLG_SPEED
-    pos, _ = swe.calc_ut(jd, planet_code, flags)
-    return pos[0]
+    deg = pos[0]
+    return deg, int(deg), int((deg % 1) * 60), int(((deg % 1) * 60 % 1) * 60)
 
 def get_planet_for_symbol(symbol):
     """Determine planetary ruler for symbol"""
-    symbol_upper = symbol.upper()
+    symbol_upper = symbol.split(':')[-1] if ':' in symbol else symbol
     for planet, keywords in PLANETARY_RULES.items():
         for keyword in keywords:
             if keyword in symbol_upper:
@@ -75,7 +78,7 @@ def get_planet_for_symbol(symbol):
     return None
 
 def analyze_transits(symbols):
-    """Generate trading signals based on transits"""
+    """Generate trading signals with transit details"""
     now_utc = datetime.now(pytz.utc)
     alerts = []
     
@@ -85,198 +88,203 @@ def analyze_transits(symbols):
             continue
             
         try:
-            current_pos = get_planet_position(planet, now_utc)
-            natal_pos = current_pos  # Replace with actual natal positions
+            deg, d, m, s = get_planet_position(planet, now_utc)
+            natal_pos = deg  # Replace with actual natal positions
             
-            if abs((current_pos - natal_pos) % 360) <= 3:
+            # Aspect analysis
+            aspect_diff = abs((deg - natal_pos) % 360)
+            if aspect_diff <= 3:  # Conjunction
                 if planet in ['JUPITER', 'VENUS', 'MOON']:
-                    alerts.append({
-                        'Symbol': symbol,
-                        'Signal': 'BUY',
-                        'Planet': planet,
-                        'Time': now_utc,
-                        'Position': current_pos
-                    })
+                    signal = 'BUY'
+                    reason = f"{planet} conjunction ({d}°{m}'{s}\")"
                 elif planet in ['SATURN', 'MARS', 'RAHU', 'KETU']:
-                    alerts.append({
-                        'Symbol': symbol,
-                        'Signal': 'SELL',
-                        'Planet': planet,
-                        'Time': now_utc,
-                        'Position': current_pos
-                    })
-                elif planet == 'SUN':
-                    alerts.append({
-                        'Symbol': symbol,
-                        'Signal': 'HOLD',
-                        'Planet': planet,
-                        'Time': now_utc,
-                        'Position': current_pos
-                    })
+                    signal = 'SELL'
+                    reason = f"{planet} conjunction ({d}°{m}'{s}\")"
+                else:
+                    signal = 'HOLD'
+                    reason = f"Solar influence ({d}°{m}'{s}\")"
+                
+                alerts.append({
+                    'Symbol': symbol,
+                    'Market': get_market_type(symbol),
+                    'Signal': signal,
+                    'Planet': planet,
+                    'Degree': f"{d}°{m}'{s}\"",
+                    'Position': deg,
+                    'Time': now_utc,
+                    'Reason': reason
+                })
         except Exception as e:
             st.error(f"Error analyzing {symbol}: {str(e)}")
             continue
     
     return alerts
 
-def create_astro_chart(alerts):
-    """Create real-time astrological visualization"""
+def get_market_type(symbol):
+    """Categorize symbol by market type"""
+    symbol_upper = symbol.upper()
+    if any(m in symbol_upper for m in ['NSE:', 'BSE:']):
+        return "Equity"
+    elif 'MCX:' in symbol_upper:
+        return "Commodity"
+    elif any(m in symbol_upper for m in ['NIFTY', 'SENSEX', 'INDEX']):
+        return "Index"
+    elif any(m in symbol_upper for m in ['USD', 'EUR', 'GBP', 'JPY', 'INR']):
+        return "Forex"
+    return "Other"
+
+def display_market_dashboard(alerts):
+    """Create tabs for each market type with detailed transit info"""
     if not alerts:
-        return None
+        st.info("No active signals currently")
+        return
     
-    fig = make_subplots(rows=1, cols=2, specs=[[{'type': 'polar'}, {'type': 'xy'}]])
+    df = pd.DataFrame(alerts)
+    market_tabs = st.tabs(["All Markets"] + list(MARKET_CATEGORIES.keys()))
     
-    # Polar chart for planetary positions
-    planets = [alert['Planet'] for alert in alerts]
-    positions = [alert['Position'] for alert in alerts]
-    signals = [alert['Signal'] for alert in alerts]
-    colors = ['darkgreen' if s == 'BUY' else 'crimson' if s == 'SELL' else 'gold' for s in signals]
+    with market_tabs[0]:  # All Markets
+        st.subheader("All Market Signals")
+        display_signals_table(df)
     
-    fig.add_trace(go.Scatterpolar(
-        r=[1]*len(planets),
-        theta=positions,
-        text=planets,
-        marker=dict(size=20, color=colors),
-        name='Planets',
-        subplot='polar'
-    ), 1, 1)
-    
-    fig.update_polars(
-        radialaxis=dict(visible=False),
-        angularaxis=dict(
-            direction='clockwise',
-            rotation=90
-        )
+    for i, market in enumerate(MARKET_CATEGORIES.keys(), 1):
+        with market_tabs[i]:
+            st.subheader(f"{market} Signals")
+            market_df = df[df['Market'] == market]
+            if not market_df.empty:
+                display_signals_table(market_df)
+                display_zodiac_chart(market_df)
+            else:
+                st.info(f"No active signals in {market}")
+
+def display_signals_table(df):
+    """Display signals in a color-coded table"""
+    st.dataframe(
+        df.style.applymap(
+            lambda x: 'background-color: #006400; color: white' if x == 'BUY' else
+                     'background-color: #8B0000; color: white' if x == 'SELL' else
+                     'background-color: #FFD700; color: black',
+            subset=['Signal']
+        ).format({
+            'Time': lambda x: x.strftime('%H:%M:%S')
+        }),
+        column_order=['Time', 'Symbol', 'Signal', 'Planet', 'Degree', 'Reason'],
+        use_container_width=True,
+        height=min(400, 35 * len(df) + 35)
     )
+
+def display_zodiac_chart(df):
+    """Show zodiac wheel with planet positions"""
+    zodiac_signs = ['Aries', 'Taurus', 'Gemini', 'Cancer', 'Leo', 'Virgo',
+                   'Libra', 'Scorpio', 'Sagittarius', 'Capricorn', 'Aquarius', 'Pisces']
     
-    # Ticker-style display
-    ticker_df = pd.DataFrame(alerts)
-    ticker_df['Time'] = ticker_df['Time'].dt.strftime('%H:%M:%S')
+    fig = go.Figure()
     
-    fig.add_trace(go.Table(
-        header=dict(
-            values=['Time', 'Symbol', 'Signal', 'Planet'],
-            fill_color='navy',
-            font=dict(color='white', size=12)
-        ),
-        cells=dict(
-            values=[ticker_df['Time'], ticker_df['Symbol'], 
-                   ticker_df['Signal'], ticker_df['Planet']],
-            fill_color=[['white', 'lightgray']*len(ticker_df),
-                        ['white', 'lightgray']*len(ticker_df),
-                        [['darkgreen' if x == 'BUY' else 'crimson' if x == 'SELL' else 'gold' 
-                          for x in ticker_df['Signal']]],
-                        ['white', 'lightgray']*len(ticker_df)],
-            font=dict(color=['black', 'black', 'white', 'black'])
-        ),
-        columnwidth=[1, 2, 1, 1]
-    ), 1, 2)
+    for _, row in df.iterrows():
+        deg = row['Position']
+        sign_idx = int(deg / 30)
+        sign_pos = deg % 30
+        sign = zodiac_signs[sign_idx]
+        
+        fig.add_trace(go.Scatterpolar(
+            r=[1],
+            theta=[sign_pos],
+            mode='markers+text',
+            marker=dict(
+                size=20,
+                color='darkgreen' if row['Signal'] == 'BUY' else 'crimson',
+                symbol='hexagram' if row['Planet'] in ['RAHU', 'KETU'] else 'circle'
+            ),
+            text=f"{row['Planet']}<br>{row['Symbol']}",
+            textposition='middle center',
+            name=f"{row['Symbol']} - {row['Signal']}",
+            hoverinfo='text',
+            hovertext=f"{row['Symbol']}<br>{row['Planet']} {sign} {row['Degree']}<br>{row['Reason']}"
+        ))
     
     fig.update_layout(
-        title='Live Astro Trading Signals',
-        height=500,
-        showlegend=False,
         polar=dict(
-            domain=dict(x=[0, 0.45])
-        )
+            angularaxis=dict(
+                tickvals=list(range(0, 360, 30)),
+                ticktext=zodiac_signs,
+                direction='clockwise',
+                rotation=90
+            ),
+            radialaxis=dict(visible=False)
+        ),
+        showlegend=False,
+        height=500,
+        margin=dict(l=20, r=20, t=40, b=20)
     )
     
-    return fig
+    st.plotly_chart(fig, use_container_width=True)
 
 def main():
     st.set_page_config(
-        page_title="Live Astro Trader",
-        page_icon="🌌",
+        page_title="Astro Trading Dashboard",
+        page_icon="🌐",
         layout="wide"
     )
     
-    st.title("🌠 Live Astrological Trading Signals")
+    st.title("🌐 Market-Wise Planetary Transit Signals")
     st.markdown("""
     <style>
-    .stAlert { padding: 10px; border-radius: 5px; }
-    .buy-signal { background-color: #006400; color: white; padding: 5px; border-radius: 3px; }
-    .sell-signal { background-color: #8B0000; color: white; padding: 5px; border-radius: 3px; }
-    .hold-signal { background-color: #FFD700; color: black; padding: 5px; border-radius: 3px; }
-    .ticker { 
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 10px;
+    }
+    .stTabs [data-baseweb="tab"] {
+        padding: 8px 16px;
+        border-radius: 4px 4px 0 0;
+    }
+    .stTabs [aria-selected="true"] {
         background-color: #0E1117;
         color: white;
-        padding: 10px;
-        border-radius: 5px;
-        font-family: monospace;
-        overflow-x: auto;
-        white-space: nowrap;
     }
     </style>
     """, unsafe_allow_html=True)
     
-    # Real-time display placeholder
-    chart_placeholder = st.empty()
-    ticker_placeholder = st.empty()
-    alert_history = st.empty()
+    # Initialize session state
+    if 'signals' not in st.session_state:
+        st.session_state.signals = []
     
-    # Symbol input
-    with st.expander("🔮 Symbol Configuration", expanded=True):
-        default_symbols = """NSE:NIFTY,NSE:BANKNIFTY,NSE:RELIANCE,NSE:TATASTEEL,NSE:HDFCBANK,
-                         MCX:GOLD1!,MCX:SILVER1!,NSE:INFY,NSE:TCS,NSE:HINDUNILVR"""
-        symbol_input = st.text_area("Enter symbols (comma separated)", value=default_symbols)
-        symbols = [s.strip() for s in symbol_input.split(',') if s.strip()]
+    # Symbol input by market type
+    with st.expander("📊 Market Symbols Configuration", expanded=True):
+        cols = st.columns(len(MARKET_CATEGORIES))
+        market_symbols = {}
         
-    # Auto-refresh control
-    refresh_rate = st.slider("Refresh rate (seconds)", 5, 60, 15)
-    auto_refresh = st.checkbox("Enable auto-refresh", True)
+        for i, (market, default_symbols) in enumerate(MARKET_CATEGORIES.items()):
+            with cols[i]:
+                market_symbols[market] = st.text_area(
+                    f"{market} Symbols",
+                    value="\n".join(default_symbols),
+                    height=150
+                ).split('\n')
     
-    # Initialize history
-    if 'history' not in st.session_state:
-        st.session_state.history = pd.DataFrame(columns=['Time', 'Symbol', 'Signal', 'Planet'])
+    # Flatten all symbols
+    all_symbols = []
+    for symbols in market_symbols.values():
+        all_symbols.extend([s.strip() for s in symbols if s.strip()])
+    
+    # Auto-refresh control
+    refresh_col1, refresh_col2 = st.columns([1, 3])
+    with refresh_col1:
+        refresh_rate = st.slider("Refresh (seconds)", 5, 60, 15)
+    with refresh_col2:
+        auto_refresh = st.checkbox("Enable live updates", True)
+    
+    # Dashboard placeholder
+    dashboard_placeholder = st.empty()
     
     # Main loop
-    while auto_refresh:
+    while auto_refresh and all_symbols:
         start_time = time.time()
         
         # Generate alerts
-        alerts = analyze_transits(symbols)
-        now = datetime.now(pytz.utc).strftime('%H:%M:%S')
+        alerts = analyze_transits(all_symbols)
+        st.session_state.signals = alerts
         
-        if alerts:
-            # Update history
-            new_alerts = pd.DataFrame(alerts)
-            new_alerts['Time'] = new_alerts['Time'].dt.strftime('%H:%M:%S')
-            st.session_state.history = pd.concat(
-                [st.session_state.history, new_alerts[['Time', 'Symbol', 'Signal', 'Planet']]]
-            ).drop_duplicates().tail(50)  # Keep last 50 alerts
-            
-            # Visualizations
-            fig = create_astro_chart(alerts)
-            chart_placeholder.plotly_chart(fig, use_container_width=True)
-            
-            # Ticker display
-            ticker_html = "<div class='ticker'>"
-            for alert in alerts[-10:]:  # Show last 10 alerts in ticker
-                signal_class = alert['Signal'].lower() + "-signal"
-                ticker_html += f"""
-                <span style='margin-right: 20px;'>
-                    [{alert['Time'].strftime('%H:%M:%S')}] 
-                    <strong>{alert['Symbol']}</strong> 
-                    <span class='{signal_class}'>{alert['Signal']}</span> 
-                    ({alert['Planet']})
-                </span>"""
-            ticker_html += "</div>"
-            ticker_placeholder.markdown(ticker_html, unsafe_allow_html=True)
-            
-            # Alert history
-            alert_history.dataframe(
-                st.session_state.history.style.applymap(
-                    lambda x: 'background-color: darkgreen; color: white' if x == 'BUY' else
-                             'background-color: crimson; color: white' if x == 'SELL' else
-                             'background-color: gold; color: black',
-                    subset=['Signal']
-                ),
-                height=500,
-                use_container_width=True
-            )
-        else:
-            chart_placeholder.info("No significant transits detected")
-            ticker_placeholder.info("Waiting for signals...")
+        # Update dashboard
+        with dashboard_placeholder.container():
+            display_market_dashboard(alerts)
         
         # Control refresh rate
         elapsed = time.time() - start_time
@@ -286,6 +294,12 @@ def main():
         # Manual refresh check
         if not auto_refresh:
             break
+    
+    # Show final state if auto-refresh is off
+    if not auto_refresh and all_symbols:
+        alerts = analyze_transits(all_symbols)
+        st.session_state.signals = alerts
+        display_market_dashboard(alerts)
 
 if __name__ == "__main__":
     main()
