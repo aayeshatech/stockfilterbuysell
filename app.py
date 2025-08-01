@@ -1,6 +1,6 @@
 """
-Market Astro Signals
-Generates trading signals based on planetary associations and time-based logic.
+Market Astro Signals - A Streamlit app that generates trading signals
+based on planetary positions and technical indicators.
 """
 
 import streamlit as st
@@ -9,12 +9,13 @@ from datetime import datetime
 import pytz
 import time
 import logging
+from typing import Dict, List  # Required for type hints
 
-# --- Configure Logging ---
+# Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# --- Constants ---
+# Market Configuration
 MARKET_DATA = {
     "Equity Futures": ["NSE:RELIANCE-FUT", "NSE:TATASTEEL-FUT", "NSE:HDFCBANK-FUT"],
     "Commodities": ["MCX:GOLD", "MCX:SILVER", "MCX:CRUDEOIL"],
@@ -22,14 +23,23 @@ MARKET_DATA = {
     "Forex": ["USDINR", "EURUSD", "GBPUSD"]
 }
 
+# Planetary Associations
 PLANET_MAPPING = {
-    "GOLD": "SUN", "SILVER": "MOON", "CRUDEOIL": "MARS",
-    "RELIANCE": "JUPITER", "TATA": "VENUS", "HDFC": "MERCURY",
-    "NIFTY": "JUPITER", "BANKNIFTY": "JUPITER", "SENSEX": "SUN",
-    "USD": "VENUS", "EUR": "MERCURY", "GBP": "JUPITER", "INR": "VENUS"
+    "GOLD": "SUN",
+    "SILVER": "MOON",
+    "CRUDEOIL": "MARS",
+    "RELIANCE": "JUPITER",
+    "TATA": "VENUS",
+    "HDFC": "MERCURY",
+    "NIFTY": "JUPITER",
+    "BANKNIFTY": "JUPITER",
+    "SENSEX": "SUN",
+    "USD": "VENUS",
+    "EUR": "MERCURY",
+    "GBP": "JUPITER",
+    "INR": "VENUS"
 }
 
-# --- Functions ---
 def get_planet(symbol: str) -> str:
     """Map a trading symbol to its associated planet."""
     for key, planet in PLANET_MAPPING.items():
@@ -41,14 +51,14 @@ def generate_signal(symbol: str, now: datetime) -> Dict[str, str]:
     """Generate a mock signal based on current minute."""
     planet = get_planet(symbol)
     minute = now.minute
-
+    
     if minute < 20:
         signal = "BUY"
     elif minute < 40:
         signal = "HOLD"
     else:
         signal = "SELL"
-
+    
     return {
         "Symbol": symbol,
         "Planet": planet,
@@ -57,14 +67,13 @@ def generate_signal(symbol: str, now: datetime) -> Dict[str, str]:
         "Color": "green" if signal == "BUY" else "red" if signal == "SELL" else "gray"
     }
 
-# --- Main App ---
 def main():
     st.set_page_config(
         page_title="Market Astro Signals",
         layout="wide",
         page_icon="✨"
     )
-
+    
     st.title("Planetary Market Signals")
     st.info("Note: Signals are generated based on mock planetary logic.")
 
