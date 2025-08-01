@@ -1,112 +1,160 @@
 import streamlit as st
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, timedelta
 import pytz
 import time
 
-# Safe import with version checking
-def safe_import(module_name, min_version=None):
-    try:
-        module = __import__(module_name)
-        if min_version:
-            from pkg_resources import parse_version
-            if parse_version(module.__version__) < parse_version(min_version):
-                st.warning(f"{module_name} version {module.__version__} is below recommended {min_version}")
-        return module
-    except ImportError:
-        st.warning(f"{module_name} not available - some features disabled")
-        return None
-
-# Import with fallbacks
-plotly = safe_import("plotly", "5.0.0")
-swe = safe_import("swisseph")
-
-# Configuration
-CONFIG = {
-    "EPHE_PATH": "./ephe",
-    "REFRESH_RATE": 15  # seconds
+# Enhanced Market Configuration
+MARKET_CATEGORIES = {
+    "Commodity": ["MCX:GOLD", "MCX:SILVER", "MCX:CRUDEOIL", "MCX:NATURALGAS"],
+    "Forex": ["BTCUSD", "USDINR", "DXY", "EURUSD", "GBPUSD"],
+    "Global Indices": ["DOWJONES", "SNP500", "NASDAQ", "FTSE100", "NIKKEI225"],
+    "Sectors": ["NIFTYMIDCAP", "NIFTYPSUBANK", "NIFTYPHARMA", "NIFTYAUTO", "NIFTYFMCG", "CNX100", "CNX500"],
+    "Equity Futures": ["NSE:RELIANCE-FUT", "NSE:TATASTEEL-FUT", "NSE:HDFCBANK-FUT"]
 }
 
-if swe:
-    try:
-        swe.set_ephe_path(CONFIG["EPHE_PATH"])
-    except Exception as e:
-        st.error(f"Swiss Ephemeris init error: {e}")
-
-# Market data
-MARKET_DATA = {
-    "Equity": ["NSE:RELIANCE", "NSE:TCS", "NSE:HDFCBANK"],
-    "Commodity": ["MCX:GOLD", "MCX:SILVER"],
-    "Index": ["NSE:NIFTY", "NSE:BANKNIFTY"],
-    "Forex": ["USDINR", "EURINR"]
+# Planetary Rulerships (Expanded)
+PLANETARY_RULES = {
+    'SUN': ["GOLD", "SILVER", "INDEX"],
+    'MOON': ["CRUDEOIL", "NATURALGAS", "CURRENCY"],
+    'MERCURY': ["BTC", "TECH", "PHARMA"],
+    'VENUS': ["LUXURY", "AUTO", "FMCG"],
+    'MARS': ["METAL", "ENERGY", "DEFENSE"],
+    'JUPITER': ["BANK", "FINANCE", "USD"],
+    'SATURN': ["PSU", "COMMODITIES", "INDUSTRY"],
+    'RAHU': ["SPECULATIVE", "CRYPTO"],
+    'KETU': ["PHARMA", "MIDCAP"]
 }
 
-def get_planet_position(symbol, dt):
-    """Safe position calculation with fallback"""
-    if not swe:
-        return 0, "0°0'0\"", "Aries 0°"  # Demo values
+# Zodiac Signs
+ZODIAC_SIGNS = ["Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo", 
+               "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces"]
+
+def get_planet_position(planet, date_utc):
+    """Calculate planet position with degrees"""
+    # In production, replace with actual Swiss Ephemeris calculations
+    hour_deg = (date_utc.hour % 12) * 30  # 30° per zodiac sign
+    minute_deg = date_utc.minute * 0.5    # 0.5° per minute
+    deg = (hour_deg + minute_deg) % 360
     
-    # Actual implementation would use Swiss Ephemeris here
-    return 15.5, "15°30'0\"", "Aries 15.5°"
+    d = int(deg)
+    m = int((deg - d) * 60)
+    s = int(((deg - d) * 60 - m) * 60)
+    
+    sign_idx = int(deg / 30)
+    zodiac = f"{ZODIAC_SIGNS[sign_idx]} {deg%30:.1f}°"
+    
+    return deg, f"{d}°{m}'{s}\"", zodiac
+
+def analyze_transit(symbol):
+    """Generate trading signal based on planetary position"""
+    planet = None
+    for p, keywords in PLANETARY_RULES.items():
+        if any(kw in symbol.upper() for kw in keywords):
+            planet = p
+            break
+    
+    if not planet:
+        return None
+    
+    now = datetime.now(pytz.utc)
+    deg, degree_str, zodiac = get_planet_position(planet, now)
+    
+    # Simple aspect analysis
+    if planet in ['JUPITER', 'VENUS', 'MOON']:
+        signal = "BUY" if deg < 180 else "HOLD"
+    elif planet in ['SATURN', 'MARS', 'RAHU', 'KETU']:
+        signal = "SELL" if deg > 90 else "HOLD"
+    else:
+        signal = "HOLD"
+    
+    return {
+        "Symbol": symbol,
+        "Planet": planet,
+        "Degree": degree_str,
+        "Zodiac": zodiac,
+        "Signal": signal,
+        "Time": now.strftime("%H:%M:%S"),
+        "Color": "#006400" if signal == "BUY" else "#8B0000" if signal == "SELL" else "#FFD700"
+    }
 
 def main():
     st.set_page_config(
-        page_title="Astro Trader",
+        page_title="Advanced Astro Trader",
         layout="wide",
         initial_sidebar_state="expanded"
     )
     
-    st.title("Planetary Transit Signals")
+    st.title("🌌 Planetary Transit Trading Signals")
+    st.markdown("""
+    <style>
+    .signal-buy { background-color: #00640040; padding: 5px; border-radius: 5px; }
+    .signal-sell { background-color: #8B000040; padding: 5px; border-radius: 5px; }
+    .signal-hold { background-color: #FFD70040; padding: 5px; border-radius: 5px; }
+    </style>
+    """, unsafe_allow_html=True)
     
-    # UI Controls
-    with st.sidebar:
-        st.header("Configuration")
-        market = st.selectbox("Market", list(MARKET_DATA.keys()))
-        symbols = st.multiselect(
-            "Symbols", 
-            MARKET_DATA[market],
-            default=MARKET_DATA[market][:2]
-        )
-        refresh_rate = st.slider("Refresh (sec)", 5, 60, CONFIG["REFRESH_RATE"])
+    # Market Selection
+    selected_market = st.sidebar.selectbox(
+        "Select Market Segment",
+        list(MARKET_CATEGORIES.keys())
+    )
+    
+    # Symbol Selection
+    selected_symbols = st.sidebar.multiselect(
+        "Select Symbols",
+        MARKET_CATEGORIES[selected_market],
+        default=MARKET_CATEGORIES[selected_market][:2]
+    )
+    
+    # Refresh Controls
+    refresh_rate = st.sidebar.slider("Refresh Rate (seconds)", 5, 60, 15)
+    auto_refresh = st.sidebar.checkbox("Auto Refresh", True)
     
     # Display Area
     placeholder = st.empty()
     
     while True:
-        with placeholder.container():
-            # Generate sample data
-            data = []
-            for symbol in symbols:
-                pos, deg, zodiac = get_planet_position(symbol, datetime.now())
-                signal = "BUY" if pos < 180 else "SELL"
-                data.append({
-                    "Symbol": symbol,
-                    "Signal": signal,
-                    "Degree": deg,
-                    "Zodiac": zodiac,
-                    "Time": datetime.now().strftime("%H:%M:%S")
-                })
-            
-            # Display as table
-            df = pd.DataFrame(data)
-            st.dataframe(
-                df.style.applymap(
-                    lambda x: "background-color: #006400; color: white" if x == "BUY" else
-                             "background-color: #8B0000; color: white",
-                    subset=["Signal"]
-                ),
-                use_container_width=True
-            )
-            
-            # Optional Plotly chart
-            if plotly:
-                fig = plotly.graph_objects.Figure()
-                fig.add_trace(plotly.graph_objects.Table(
-                    header=dict(values=df.columns),
-                    cells=dict(values=[df[col] for col in df.columns])
-                ))
-                st.plotly_chart(fig, use_container_width=True)
+        signals = []
+        for symbol in selected_symbols:
+            signal = analyze_transit(symbol)
+            if signal:
+                signals.append(signal)
         
+        with placeholder.container():
+            # Market Header
+            st.header(f"{selected_market} Signals")
+            
+            # Create DataFrame
+            if signals:
+                df = pd.DataFrame(signals)
+                
+                # Display with colored signals
+                for _, row in df.iterrows():
+                    st.markdown(
+                        f"""
+                        <div class="signal-{row['Signal'].lower()}">
+                            <strong>{row['Time']}</strong> | 
+                            {row['Symbol']} | 
+                            <strong>{row['Planet']}</strong> in {row['Zodiac']} | 
+                            <span style='color:{row['Color']};font-weight:bold'>{row['Signal']}</span> | 
+                            {row['Degree']}
+                        </div>
+                        """,
+                        unsafe_allow_html=True
+                    )
+                
+                # Summary Stats
+                cols = st.columns(3)
+                cols[0].metric("Buy Signals", len(df[df['Signal'] == "BUY"]))
+                cols[1].metric("Sell Signals", len(df[df['Signal'] == "SELL"]))
+                cols[2].metric("Active Signals", len(df))
+            else:
+                st.warning("No signals generated for selected symbols")
+        
+        if not auto_refresh:
+            break
+            
         time.sleep(refresh_rate)
 
 if __name__ == "__main__":
