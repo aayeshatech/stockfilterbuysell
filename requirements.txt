@@ -1,2 +1,6 @@
-streamlit==1.32.2
-polars[all]==0.19.12  # Faster pandas alternative
+yfinance>=0.2.36
+pyephem>=4.1.5
+pytz>=2024.1
+streamlit>=1.33.0
+markdown-it-py>=3.0.0
+rich>=14.1.0
