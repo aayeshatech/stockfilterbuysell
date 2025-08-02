@@ -1,5 +1,8 @@
 """Astro-Trading Dashboard with Real-time Planetary Data"""
 
+# First install required packages:
+# pip install streamlit requests pandas yfinance plotly
+
 import streamlit as st
 import requests
 from datetime import datetime
@@ -179,9 +182,8 @@ def plot_planetary_positions(transits: pd.DataFrame):
                 rotation=90,
                 period=360,
                 tickvals=list(range(0, 360, 30))
-            ),
-            radialaxis=dict(visible=False)
         ),
+        radialaxis=dict(visible=False),
         showlegend=True,
         height=500
     )
