@@ -13,7 +13,7 @@ try:
     SWISSEPH_AVAILABLE = True
 except ImportError:
     SWISSEPH_AVAILABLE = False
-
+    
 try:
     import ephem
     EHEM_AVAILABLE = True
@@ -94,10 +94,6 @@ st.markdown("""
         background-color: #f8d7da;
         color: #721c24;
     }
-    .hold-badge {
-        background-color: #fff3cd;
-        color: #856404;
-    }
     .transit-detail {
         font-size: 0.9rem;
         color: #555;
@@ -130,6 +126,63 @@ st.markdown("""
         padding: 0.5rem;
         background-color: #f8f9fa;
         border-radius: 0.25rem;
+    }
+    .sector-card {
+        border: 1px solid #ddd;
+        border-radius: 0.5rem;
+        padding: 1rem;
+        margin-bottom: 1rem;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+    .sector-card:hover {
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        transform: translateY(-2px);
+    }
+    .sector-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 0.5rem;
+    }
+    .sector-name {
+        font-weight: bold;
+        font-size: 1.1rem;
+    }
+    .sector-signal {
+        padding: 0.25rem 0.5rem;
+        border-radius: 0.25rem;
+        font-weight: bold;
+        font-size: 0.9rem;
+    }
+    .bullish-signal {
+        background-color: #d4edda;
+        color: #155724;
+    }
+    .bearish-signal {
+        background-color: #f8d7da;
+        color: #721c24;
+    }
+    .planetary-effect {
+        font-size: 0.85rem;
+        color: #555;
+        margin-top: 0.5rem;
+    }
+    .stock-list {
+        margin-top: 1rem;
+        padding-top: 0.5rem;
+        border-top: 1px solid #eee;
+    }
+    .stock-item {
+        display: flex;
+        justify-content: space-between;
+        padding: 0.25rem 0;
+    }
+    .stock-name {
+        font-weight: 500;
+    }
+    .stock-signal {
+        font-weight: bold;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -607,16 +660,13 @@ def generate_complete_report(selected_date, watchlist, sectors):
         bullish_strength = sum(s['strength'] for s in signals if s['type'] == 'bullish')
         bearish_strength = sum(s['strength'] for s in signals if s['type'] == 'bearish')
         
-        # Determine buy/sell/hold recommendation
-        if bullish_strength > bearish_strength * 1.5:
+        # Determine buy/sell recommendation (only BUY or SELL)
+        if bullish_strength > bearish_strength:
             recommendation = "BUY"
             recommendation_class = "buy-badge"
-        elif bearish_strength > bullish_strength * 1.5:
+        else:
             recommendation = "SELL"
             recommendation_class = "sell-badge"
-        else:
-            recommendation = "HOLD"
-            recommendation_class = "hold-badge"
         
         if bullish_strength > bearish_strength:
             overall_signal = "🐂 Bullish"
@@ -643,6 +693,62 @@ def generate_complete_report(selected_date, watchlist, sectors):
         })
     
     return positions, aspects, report_data
+
+# Generate sector analysis
+def generate_sector_analysis(report_data, aspects):
+    """Generate sector-level analysis with planetary effects"""
+    sector_analysis = {}
+    
+    # Group data by sector
+    for data in report_data:
+        sector = data['Sector']
+        if sector not in sector_analysis:
+            sector_analysis[sector] = {
+                'symbols': [],
+                'bullish_count': 0,
+                'bearish_count': 0,
+                'bullish_strength': 0,
+                'bearish_strength': 0,
+                'planetary_effects': []
+            }
+        
+        sector_analysis[sector]['symbols'].append(data)
+        
+        if data['Signal'] == '🐂 Bullish':
+            sector_analysis[sector]['bullish_count'] += 1
+            sector_analysis[sector]['bullish_strength'] += data['Bullish Strength']
+        elif data['Signal'] == '🐻 Bearish':
+            sector_analysis[sector]['bearish_count'] += 1
+            sector_analysis[sector]['bearish_strength'] += data['Bearish Strength']
+    
+    # Determine planetary effects for each sector
+    for sector, data in sector_analysis.items():
+        # Find sector-specific aspects
+        sector_aspects = []
+        for aspect in aspects:
+            # Check if this aspect affects the sector based on sector rules
+            if sector in ['Banking', 'IT', 'Energy', 'Commodity', 'Financial', 'Auto', 
+                          'Pharma', 'Metals', 'Power', 'Oil & Gas', 'FMCG', 'Paints', 
+                          'Jewelry', 'Infrastructure', 'Mining']:
+                
+                # Simplified logic to determine if aspect affects sector
+                if aspect['aspect'] in ['Trine', 'Sextile'] and aspect['strength'] > 0.6:
+                    effect_type = 'bullish'
+                elif aspect['aspect'] in ['Square', 'Opposition'] and aspect['strength'] > 0.6:
+                    effect_type = 'bearish'
+                else:
+                    continue
+                
+                sector_aspects.append({
+                    'planets': f"{aspect['planet1']}-{aspect['planet2']}",
+                    'aspect': aspect['aspect'],
+                    'type': effect_type,
+                    'strength': aspect['strength']
+                })
+        
+        sector_analysis[sector]['planetary_effects'] = sector_aspects
+    
+    return sector_analysis
 
 # Main dashboard
 def main():
@@ -686,6 +792,8 @@ def main():
         st.session_state.report_generated = False
     if 'selected_date' not in st.session_state:
         st.session_state.selected_date = datetime.now().date()
+    if 'expanded_sectors' not in st.session_state:
+        st.session_state.expanded_sectors = set()
     
     # Generate report if date is selected
     if st.session_state.report_generated:
@@ -696,6 +804,9 @@ def main():
         
         # Generate complete report
         positions, aspects, report_data = generate_complete_report(selected_date, watchlist, sectors)
+        
+        # Generate sector analysis
+        sector_analysis = generate_sector_analysis(report_data, aspects)
         
         # Sidebar controls
         st.sidebar.header("Dashboard Controls")
@@ -715,7 +826,7 @@ def main():
         search_term = st.sidebar.text_input("Search Symbol", "")
         
         # Main content area
-        col1, col2, col3 = st.columns([3, 2, 2])
+        col1, col2 = st.columns([3, 2])
         
         # Filter report data based on sidebar controls
         filtered_report_data = []
@@ -764,81 +875,100 @@ def main():
             else:
                 st.info("No signals found for selected filters")
         
-        # Display planetary positions
+        # Display sector overview with planetary effects
         with col2:
-            st.header("Planetary Positions")
+            st.header("Sector Analysis")
             
-            if positions:
-                # Create positions DataFrame
-                pos_data = []
-                for planet, longitude in positions.items():
-                    pos_data.append({
-                        'Planet': planet,
-                        'Position': format_planetary_position(longitude),
-                        'Longitude': round(longitude, 2)
-                    })
+            # Overall market sentiment
+            st.markdown("### Market Sentiment")
+            total_bullish = sum(1 for s in filtered_report_data if "Bullish" in s['Signal'])
+            total_bearish = sum(1 for s in filtered_report_data if "Bearish" in s['Signal'])
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                st.metric("Bullish", total_bullish, delta=None)
+            with col2:
+                st.metric("Bearish", total_bearish, delta=None)
+            
+            # Sector cards
+            st.markdown("### Sector Planetary Effects")
+            
+            for sector, data in sector_analysis.items():
+                if sector not in selected_sectors:
+                    continue
                 
-                pos_df = pd.DataFrame(pos_data)
-                st.dataframe(pos_df, use_container_width=True)
-                
-                st.subheader("Planetary Aspects")
-                
-                if aspects:
-                    aspect_df = pd.DataFrame(aspects)
-                    aspect_df = aspect_df.sort_values('strength', ascending=False)
-                    aspect_df['strength'] = aspect_df['strength'].apply(lambda x: f"{x:.2f}")
-                    aspect_df['angle'] = aspect_df['angle'].apply(lambda x: f"{x:.1f}°")
-                    
-                    # Display aspects with color coding
-                    for _, aspect in aspect_df.iterrows():
-                        aspect_class = "aspect-bullish" if aspect['strength'] > '0.70' else "aspect-bearish" if aspect['strength'] < '0.30' else ""
-                        st.markdown(
-                            f"<div class='aspect-detail {aspect_class}'>"
-                            f"<strong>{aspect['planet1']} - {aspect['planet2']}</strong> {aspect['aspect']} "
-                            f"({aspect['angle']}, Strength: {aspect['strength']})</div>", 
-                            unsafe_allow_html=True
-                        )
+                # Determine sector signal
+                if data['bullish_strength'] > data['bearish_strength']:
+                    sector_signal = "Bullish"
+                    signal_class = "bullish-signal"
                 else:
-                    st.info("No significant aspects at this time")
-            else:
-                st.info("Planetary positions not available")
-        
-        # Display sector overview
-        with col3:
-            st.header("Sector Overview")
-            
-            # Calculate sector sentiment
-            sector_sentiment = {}
-            for sector in selected_sectors:
-                sector_signals = [s for s in filtered_report_data if s['Sector'] == sector]
-                if sector_signals:
-                    bullish = sum(1 for s in sector_signals if "Bullish" in s['Signal'])
-                    bearish = sum(1 for s in sector_signals if "Bearish" in s['Signal'])
-                    neutral = len(sector_signals) - bullish - bearish
+                    sector_signal = "Bearish"
+                    signal_class = "bearish-signal"
+                
+                # Create sector card
+                with st.container():
+                    st.markdown(f"""
+                    <div class="sector-card" onclick="toggleSector('{sector}')">
+                        <div class="sector-header">
+                            <div class="sector-name">{sector}</div>
+                            <div class="sector-signal {signal_class}">{sector_signal}</div>
+                        </div>
+                        <div>
+                            <strong>Bullish:</strong> {data['bullish_count']} | 
+                            <strong>Bearish:</strong> {data['bearish_count']}
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                
+                # Show planetary effects
+                if data['planetary_effects']:
+                    st.markdown(f"<div class='planetary-effect'><strong>Planetary Effects:</strong></div>", unsafe_allow_html=True)
+                    for effect in data['planetary_effects']:
+                        effect_color = "green" if effect['type'] == 'bullish' else "red"
+                        st.markdown(f"""
+                        <div class="planetary-effect">
+                            <span style="color: {effect_color}">{effect['planets']} {effect['aspect']}</span> 
+                            (Strength: {effect['strength']:.2f})
+                        </div>
+                        """, unsafe_allow_html=True)
+                
+                # Toggle button for sector details
+                if st.button(f"Show Stocks in {sector}", key=f"toggle_{sector}"):
+                    if sector in st.session_state.expanded_sectors:
+                        st.session_state.expanded_sectors.remove(sector)
+                    else:
+                        st.session_state.expanded_sectors.add(sector)
+                    st.rerun()
+                
+                # Show stocks if sector is expanded
+                if sector in st.session_state.expanded_sectors:
+                    st.markdown(f"<div class='stock-list'>", unsafe_allow_html=True)
                     
-                    sector_sentiment[sector] = {
-                        'Bullish': bullish,
-                        'Bearish': bearish,
-                        'Neutral': neutral,
-                        'Total': len(sector_signals)
-                    }
-            
-            if sector_sentiment:
-                sentiment_df = pd.DataFrame.from_dict(sector_sentiment, orient='index')
-                st.dataframe(sentiment_df, use_container_width=True)
-                
-                st.markdown("### Market Sentiment")
-                total_bullish = sum(d['Bullish'] for d in sector_sentiment.values())
-                total_bearish = sum(d['Bearish'] for d in sector_sentiment.values())
-                total_neutral = sum(d['Neutral'] for d in sector_sentiment.values())
-                
-                col1, col2, col3 = st.columns(3)
-                with col1:
-                    st.metric("Bullish", total_bullish, delta=None)
-                with col2:
-                    st.metric("Bearish", total_bearish, delta=None)
-                with col3:
-                    st.metric("Neutral", total_neutral, delta=None)
+                    # Show bullish stocks
+                    bullish_stocks = [s for s in data['symbols'] if s['Signal'] == '🐂 Bullish']
+                    if bullish_stocks:
+                        st.markdown("<div style='color: green; font-weight: bold;'>Bullish Stocks:</div>", unsafe_allow_html=True)
+                        for stock in bullish_stocks:
+                            st.markdown(f"""
+                            <div class="stock-item">
+                                <div class="stock-name">{stock['Symbol']}</div>
+                                <div class="stock-signal" style="color: green;">BUY</div>
+                            </div>
+                            """, unsafe_allow_html=True)
+                    
+                    # Show bearish stocks
+                    bearish_stocks = [s for s in data['symbols'] if s['Signal'] == '🐻 Bearish']
+                    if bearish_stocks:
+                        st.markdown("<div style='color: red; font-weight: bold;'>Bearish Stocks:</div>", unsafe_allow_html=True)
+                        for stock in bearish_stocks:
+                            st.markdown(f"""
+                            <div class="stock-item">
+                                <div class="stock-name">{stock['Symbol']}</div>
+                                <div class="stock-signal" style="color: red;">SELL</div>
+                            </div>
+                            """, unsafe_allow_html=True)
+                    
+                    st.markdown("</div>", unsafe_allow_html=True)
         
         # Detailed transit information section
         st.header("Detailed Astrological Analysis")
@@ -928,15 +1058,12 @@ def main():
             # Count recommendations
             buy_count = sum(1 for s in filtered_report_data if s['Recommendation'] == 'BUY')
             sell_count = sum(1 for s in filtered_report_data if s['Recommendation'] == 'SELL')
-            hold_count = sum(1 for s in filtered_report_data if s['Recommendation'] == 'HOLD')
             
-            col1, col2, col3 = st.columns(3)
+            col1, col2 = st.columns(2)
             with col1:
                 st.metric("BUY Signals", buy_count)
             with col2:
                 st.metric("SELL Signals", sell_count)
-            with col3:
-                st.metric("HOLD Signals", hold_count)
             
             # Top bullish and bearish symbols
             st.markdown("### Top Signals")
@@ -964,12 +1091,10 @@ def main():
                 if sector_symbols:
                     buy_count = sum(1 for s in sector_symbols if s['Recommendation'] == 'BUY')
                     sell_count = sum(1 for s in sector_symbols if s['Recommendation'] == 'SELL')
-                    hold_count = sum(1 for s in sector_symbols if s['Recommendation'] == 'HOLD')
                     
                     sector_breakdown[sector] = {
                         'BUY': buy_count,
                         'SELL': sell_count,
-                        'HOLD': hold_count,
                         'Total': len(sector_symbols)
                     }
             
