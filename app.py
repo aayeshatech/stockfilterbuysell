@@ -6,8 +6,6 @@ import urllib.request
 import zipfile
 import shutil
 import tempfile
-import base64
-import io
 
 # Create ephemeris directory if it doesn't exist
 EPHE_DIR = os.path.join(os.path.dirname(__file__), 'ephe')
@@ -16,7 +14,11 @@ def ensure_directory_exists(directory):
     """Ensure a directory exists, handling potential errors"""
     try:
         if not os.path.exists(directory):
-            os.makedirs(directory)
+            os.makedirs(directory, exist_ok=True)
+        # Verify it's actually a directory
+        if not os.path.isdir(directory):
+            st.error(f"Path exists but is not a directory: {directory}")
+            return False
         return True
     except Exception as e:
         st.error(f"Failed to create directory {directory}: {str(e)}")
@@ -157,23 +159,42 @@ def manual_upload_files():
     uploaded_files = {}
     
     for filename in required_files:
-        uploaded_file = st.file_uploader(f"Upload {filename}", type=["se1"])
+        uploaded_file = st.file_uploader(f"Upload {filename}", type=["se1"], key=filename)
         if uploaded_file is not None:
             uploaded_files[filename] = uploaded_file
     
     if uploaded_files and st.button("Save Uploaded Files"):
+        success_count = 0
         for filename, file in uploaded_files.items():
-            file_path = os.path.join(EPHE_DIR, filename)
-            with open(file_path, "wb") as f:
-                f.write(file.getbuffer())
-            st.success(f"✓ {filename} saved successfully")
+            try:
+                # Ensure the directory exists and is writable
+                if not os.path.isdir(EPHE_DIR):
+                    st.error(f"EPHE_DIR is not a directory: {EPHE_DIR}")
+                    continue
+                
+                # Create the file path
+                file_path = os.path.join(EPHE_DIR, filename)
+                
+                # Write the file
+                with open(file_path, "wb") as f:
+                    f.write(file.getbuffer())
+                
+                # Verify the file was written correctly
+                if os.path.exists(file_path) and os.path.getsize(file_path) > 0:
+                    st.success(f"✓ {filename} saved successfully")
+                    success_count += 1
+                else:
+                    st.error(f"Failed to save {filename}")
+                    
+            except Exception as e:
+                st.error(f"Error saving {filename}: {str(e)}")
         
-        # Check if all files are now available
-        if not check_required_files():
-            st.success("All required files have been uploaded!")
+        # Check if all files were saved
+        if success_count == len(required_files):
+            st.success("All required files have been uploaded and saved!")
             return True
         else:
-            st.error("Some required files are still missing")
+            st.error(f"Only {success_count} out of {len(required_files)} files were saved successfully")
             return False
     
     return False
