@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 import time
 import os
 import math
-from typing import Dict, Optional
+from typing import Dict, Optional, List
 import pytz
 
 # Try importing optional packages
@@ -301,6 +301,24 @@ st.markdown("""
         background-color: #f8d7da;
         color: #721c24;
     }
+    .planetary-position-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 2rem;
+        font-size: 0.9rem;
+    }
+    .planetary-position-table th, .planetary-position-table td {
+        border: 1px solid #ddd;
+        padding: 8px;
+        text-align: left;
+    }
+    .planetary-position-table th {
+        background-color: #f2f2f2;
+        font-weight: bold;
+    }
+    .planetary-position-table tr:nth-child(even) {
+        background-color: #f9f9f9;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -401,103 +419,25 @@ def get_trading_time_slots():
         ("14:15", "15:30")
     ]
 
-# Simplified planetary position calculation
-def calculate_planetary_positions_simplified(date_time):
-    """Calculate planetary positions using simplified mathematical formulas"""
-    # This is a simplified calculation for demonstration
-    # In real applications, use proper ephemeris data
-    
-    # Reference date (J2000.0)
-    ref_date = datetime(2000, 1, 1, 12, 0, 0)
-    
-    # Days since reference
-    days_since_ref = (date_time - ref_date).total_seconds() / 86400.0
-    
-    # Mean orbital elements (simplified)
-    orbital_elements = {
-        'Sun': {'period': 365.25636, 'epoch': 0.0, 'ecc': 0.0167},
-        'Moon': {'period': 27.32166, 'epoch': 0.0, 'ecc': 0.0549},
-        'Mercury': {'period': 87.969, 'epoch': 0.0, 'ecc': 0.2056},
-        'Venus': {'period': 224.701, 'epoch': 0.0, 'ecc': 0.0068},
-        'Mars': {'period': 686.980, 'epoch': 0.0, 'ecc': 0.0934},
-        'Jupiter': {'period': 4332.589, 'epoch': 0.0, 'ecc': 0.0484},
-        'Saturn': {'period': 10759.22, 'epoch': 0.0, 'ecc': 0.0539}
-    }
-    
-    positions = {}
-    
-    for planet, elements in orbital_elements.items():
-        # Calculate mean anomaly
-        M = (days_since_ref / elements['period']) * 360 + elements['epoch']
-        M = M % 360
-        
-        # Solve Kepler's equation (simplified)
-        E = M
-        for _ in range(5):  # Newton's method iterations
-            E = M + elements['ecc'] * math.sin(math.radians(E))
-        
-        # Calculate true anomaly
-        true_anomaly = 2 * math.degrees(math.atan(math.sqrt((1 + elements['ecc'])/(1 - elements['ecc'])) * math.tan(math.radians(E/2))))
-        
-        # Add some variation based on time of day
-        time_factor = (date_time.hour + date_time.minute/60.0) / 24.0 * 360
-        
-        # Final position (simplified)
-        positions[planet] = (true_anomaly + time_factor) % 360
-    
-    # Calculate approximate Rahu and Ketu positions
-    # These are the lunar nodes, approximately opposite each other
-    if 'Moon' in positions:
-        # Rahu is approximately 180 degrees from Moon's position
-        positions['Rahu'] = (positions['Moon'] + 180) % 360
-        # Ketu is opposite to Rahu
-        positions['Ketu'] = (positions['Rahu'] + 180) % 360
-    
-    return positions
+# Get zodiac sign name
+def get_zodiac_sign(longitude):
+    """Get zodiac sign from longitude"""
+    signs = ["Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo", 
+             "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces"]
+    return signs[int(longitude / 30)]
 
-# Calculate planetary positions using ephem
-def calculate_planetary_positions_ephem(date_time):
-    """Calculate planetary positions using ephem library"""
-    if not EHEM_AVAILABLE:
-        return {}
-    
-    try:
-        # Set up observer
-        observer = ephem.Observer()
-        observer.date = date_time
-        
-        # Get planetary positions
-        sun = ephem.Sun(observer)
-        moon = ephem.Moon(observer)
-        mercury = ephem.Mercury(observer)
-        venus = ephem.Venus(observer)
-        mars = ephem.Mars(observer)
-        jupiter = ephem.Jupiter(observer)
-        saturn = ephem.Saturn(observer)
-        
-        # Convert to ecliptic longitude (simplified)
-        positions = {
-            'Sun': math.degrees(sun.ra) % 360,
-            'Moon': math.degrees(moon.ra) % 360,
-            'Mercury': math.degrees(mercury.ra) % 360,
-            'Venus': math.degrees(venus.ra) % 360,
-            'Mars': math.degrees(mars.ra) % 360,
-            'Jupiter': math.degrees(jupiter.ra) % 360,
-            'Saturn': math.degrees(saturn.ra) % 360
-        }
-        
-        # Calculate approximate Rahu and Ketu
-        positions['Rahu'] = (positions['Moon'] + 180) % 360
-        positions['Ketu'] = (positions['Rahu'] + 180) % 360
-        
-        return positions
-    except Exception as e:
-        st.error(f"Ephem calculation failed: {str(e)}")
-        return {}
+# Get nakshatra name
+def get_nakshatra(longitude):
+    """Get nakshatra from longitude"""
+    nakshatras = ["Ashwini", "Bharani", "Krittika", "Rohini", "Mrigashira", "Ardra",
+                  "Punarvasu", "Pushya", "Ashlesha", "Magha", "Purva Phalguni", "Uttara Phalguni",
+                  "Hasta", "Chitra", "Swati", "Vishakha", "Anuradha", "Jyeshtha",
+                  "Mula", "Purva Ashadha", "Uttara Ashadha", "Uttara Bhadrapada", "Revati", "Shatabhisha", "Dhanishta", "Shravana"]
+    return nakshatras[int(longitude / (360/27))]
 
-# Calculate planetary positions using Swiss Ephemeris
-def calculate_planetary_positions_swisseph(date_time):
-    """Calculate planetary positions using Swiss Ephemeris"""
+# Calculate planetary positions using Swiss Ephemeris with detailed information
+def calculate_planetary_positions_detailed(date_time):
+    """Calculate detailed planetary positions using Swiss Ephemeris"""
     if not st.session_state.swisseph_initialized or not SWISSEPH_AVAILABLE:
         return {}
     
@@ -505,7 +445,7 @@ def calculate_planetary_positions_swisseph(date_time):
         # Convert to Julian day
         jd = swe.julday(
             date_time.year, date_time.month, date_time.day,
-            date_time.hour + date_time.minute/60.0
+            date_time.hour + date_time.minute/60.0 + date_time.second/3600.0
         )
         
         planets = {
@@ -517,37 +457,72 @@ def calculate_planetary_positions_swisseph(date_time):
             'Jupiter': swe.JUPITER,
             'Saturn': swe.SATURN,
             'Rahu': swe.MEAN_NODE,
-            'Ketu': -swe.MEAN_NODE
+            'Ketu': swe.TRUE_NODE
         }
         
         positions = {}
         for name, planet_id in planets.items():
-            pos, _ = swe.calc_ut(jd, planet_id)
-            positions[name] = pos[0]  # Longitude
+            # Calculate position
+            pos, ret = swe.calc_ut(jd, planet_id)
+            longitude = pos[0] % 360
+            
+            # Calculate declination
+            declination = swe.declination(pos[0], pos[1])
+            
+            # Get zodiac sign and nakshatra
+            zodiac = get_zodiac_sign(longitude)
+            nakshatra = get_nakshatra(longitude)
+            
+            # Calculate pada (quarter of nakshatra)
+            pada = int((longitude % (360/27)) / (360/108)) + 1
+            
+            # Format position in zodiac
+            deg = int(longitude % 30)
+            min = int((longitude % 30 - deg) * 60)
+            sec = int(((longitude % 30 - deg) * 60 - min) * 60)
+            pos_in_zodiac = f"{deg:02d}°{min:02d}'{sec:02d}\""
+            
+            # Determine motion (direct or retrograde)
+            motion = "D" if ret >= 0 else "R"
+            
+            # Get sign lord, star lord, sub lord (simplified)
+            sign_lords = {
+                "Aries": "Ma", "Taurus": "Ve", "Gemini": "Me", "Cancer": "Mo",
+                "Leo": "Su", "Virgo": "Me", "Libra": "Ve", "Scorpio": "Ma",
+                "Sagittarius": "Ju", "Capricorn": "Sa", "Aquarius": "Sa", "Pisces": "Ju"
+            }
+            
+            # For star lord and sub lord, we'll use a simplified approach
+            # In a real system, this would be calculated using Vedic astrology methods
+            star_lords = {
+                "Ashwini": "Ke", "Bharani": "Ve", "Krittika": "Su", "Rohini": "Mo", "Mrigashira": "Ma", "Ardra": "Ra",
+                "Punarvasu": "Ju", "Pushya": "Sa", "Ashlesha": "Me", "Magha": "Ke", "Purva Phalguni": "Ve", "Uttara Phalguni": "Su",
+                "Hasta": "Mo", "Chitra": "Ma", "Swati": "Ra", "Vishakha": "Ju", "Anuradha": "Sa", "Jyeshtha": "Me",
+                "Mula": "Ke", "Purva Ashadha": "Ve", "Uttara Ashadha": "Su", "Uttara Bhadrapada": "Sa", "Revati": "Me", 
+                "Shatabhisha": "Ra", "Dhanishta": "Ma", "Shravana": "Mo"
+            }
+            
+            # For sub lord, we'll use a simplified approach based on pada
+            sub_lords = ["Sa", "Ve", "Su", "Mo", "Ma", "Ra", "Ju", "Me", "Ke"]
+            sub_lord = sub_lords[pada % len(sub_lords)]
+            
+            positions[name] = {
+                'longitude': longitude,
+                'declination': declination,
+                'zodiac': zodiac,
+                'nakshatra': nakshatra,
+                'pada': pada,
+                'pos_in_zodiac': pos_in_zodiac,
+                'motion': motion,
+                'sign_lord': sign_lords.get(zodiac, ""),
+                'star_lord': star_lords.get(nakshatra, ""),
+                'sub_lord': sub_lord
+            }
         
         return positions
     except Exception as e:
         st.error(f"Swiss Ephemeris calculation failed: {str(e)}")
         return {}
-
-# Main function to get planetary positions with fallback
-def calculate_planetary_positions(date_time):
-    """Calculate planetary positions with multiple fallback methods"""
-    # Try Swiss Ephemeris first
-    positions = calculate_planetary_positions_swisseph(date_time)
-    if positions:
-        return positions
-    
-    # Try ephem
-    positions = calculate_planetary_positions_ephem(date_time)
-    if positions:
-        return positions
-    
-    # Fall back to simplified calculation
-    st.warning("Using simplified planetary calculations")
-    positions = calculate_planetary_positions_simplified(date_time)
-    
-    return positions
 
 # Calculate planetary aspects
 def calculate_planetary_aspects(positions):
@@ -565,19 +540,23 @@ def calculate_planetary_aspects(positions):
     
     planet_combinations = [
         ('Sun', 'Moon'), ('Sun', 'Mercury'), ('Sun', 'Venus'), ('Sun', 'Mars'),
-        ('Sun', 'Jupiter'), ('Sun', 'Saturn'), ('Moon', 'Mercury'), ('Moon', 'Venus'),
-        ('Moon', 'Mars'), ('Moon', 'Jupiter'), ('Moon', 'Saturn'), ('Mercury', 'Venus'),
-        ('Mercury', 'Mars'), ('Mercury', 'Jupiter'), ('Mercury', 'Saturn'),
+        ('Sun', 'Jupiter'), ('Sun', 'Saturn'), ('Sun', 'Rahu'), ('Sun', 'Ketu'),
+        ('Moon', 'Mercury'), ('Moon', 'Venus'), ('Moon', 'Mars'), ('Moon', 'Jupiter'),
+        ('Moon', 'Saturn'), ('Moon', 'Rahu'), ('Moon', 'Ketu'),
+        ('Mercury', 'Venus'), ('Mercury', 'Mars'), ('Mercury', 'Jupiter'),
+        ('Mercury', 'Saturn'), ('Mercury', 'Rahu'), ('Mercury', 'Ketu'),
         ('Venus', 'Mars'), ('Venus', 'Jupiter'), ('Venus', 'Saturn'),
-        ('Mars', 'Jupiter'), ('Mars', 'Saturn'), ('Jupiter', 'Saturn'),
-        ('Sun', 'Rahu'), ('Moon', 'Rahu'), ('Mars', 'Rahu'), ('Saturn', 'Rahu'),
-        ('Sun', 'Ketu'), ('Moon', 'Ketu'), ('Mars', 'Ketu'), ('Saturn', 'Ketu')
+        ('Venus', 'Rahu'), ('Venus', 'Ketu'),
+        ('Mars', 'Jupiter'), ('Mars', 'Saturn'), ('Mars', 'Rahu'), ('Mars', 'Ketu'),
+        ('Jupiter', 'Saturn'), ('Jupiter', 'Rahu'), ('Jupiter', 'Ketu'),
+        ('Saturn', 'Rahu'), ('Saturn', 'Ketu'),
+        ('Rahu', 'Ketu')
     ]
     
     for planet1, planet2 in planet_combinations:
         if planet1 in positions and planet2 in positions:
-            pos1 = positions[planet1]
-            pos2 = positions[planet2]
+            pos1 = positions[planet1]['longitude']
+            pos2 = positions[planet2]['longitude']
             
             # Calculate angular separation
             angle = abs(pos1 - pos2)
@@ -756,8 +735,8 @@ def generate_special_transit_report(selected_date, watchlist, sectors, selected_
         # Create datetime objects for the time slot
         start_time = datetime.combine(selected_date, datetime.min.time()) + timedelta(hours=start_hour, minutes=start_minute)
         
-        # Calculate planetary positions and aspects for the start of the time slot
-        positions = calculate_planetary_positions(start_time)
+        # Calculate detailed planetary positions and aspects for the start of the time slot
+        positions = calculate_planetary_positions_detailed(start_time)
         aspects = calculate_planetary_aspects(positions)
         
         # Generate signals for each special symbol
@@ -774,7 +753,8 @@ def generate_special_transit_report(selected_date, watchlist, sectors, selected_
                 'Planetary Aspect': signal_data['strongest_aspect'],
                 'Bullish Strength': signal_data['bullish_strength'],
                 'Bearish Strength': signal_data['bearish_strength'],
-                'All Aspects': signal_data['all_aspects']
+                'All Aspects': signal_data['all_aspects'],
+                'Planetary Positions': positions
             })
     
     return report_data
@@ -879,7 +859,7 @@ def main():
             special_report_data = generate_special_transit_report(selected_date, watchlist, sectors, selected_time_slot)
         
         # Create tabs for different views
-        tab1, tab2 = st.tabs(["Special Transit Report", "Detailed Analysis"])
+        tab1, tab2, tab3 = st.tabs(["Special Transit Report", "Planetary Positions", "Detailed Analysis"])
         
         with tab1:
             st.header("Special Transit Report: Nifty, BankNifty, Gold")
@@ -967,10 +947,7 @@ def main():
                 st.info("No transit data available for the selected date and time slot.")
         
         with tab2:
-            st.header("Detailed Astrological Analysis")
-            
-            # Display planetary positions
-            st.subheader("Planetary Positions")
+            st.header("Detailed Planetary Positions")
             
             # Get the first time slot for planetary positions
             time_slot = selected_time_slot if selected_time_slot else time_slots[0]
@@ -978,25 +955,89 @@ def main():
             start_hour, start_minute = map(int, start_time_str.split(':'))
             start_time = datetime.combine(selected_date, datetime.min.time()) + timedelta(hours=start_hour, minutes=start_minute)
             
-            positions = calculate_planetary_positions(start_time)
+            positions = calculate_planetary_positions_detailed(start_time)
             
             if positions:
+                # Create detailed positions table
                 pos_data = []
-                for planet, longitude in positions.items():
+                for planet, data in positions.items():
                     pos_data.append({
                         'Planet': planet,
-                        'Position': format_planetary_position(longitude),
-                        'Longitude': round(longitude, 2)
+                        'Date': selected_date.strftime("%Y-%m-%d"),
+                        'Time': start_time.strftime("%H:%M:%S"),
+                        'Motion': data['motion'],
+                        'Sign Lord': data['sign_lord'],
+                        'Star Lord': data['star_lord'],
+                        'Sub Lord': data['sub_lord'],
+                        'Zodiac': data['zodiac'],
+                        'Nakshatra': data['nakshatra'],
+                        'Pada': data['pada'],
+                        'Pos in Zodiac': data['pos_in_zodiac'],
+                        'Declination': f"{data['declination']:.2f}"
                     })
                 
                 pos_df = pd.DataFrame(pos_data)
-                st.dataframe(pos_df, use_container_width=True)
+                
+                # Display table with custom styling
+                st.markdown("""
+                <table class="planetary-position-table">
+                    <thead>
+                        <tr>
+                            <th>Planet</th>
+                            <th>Date</th>
+                            <th>Time</th>
+                            <th>Motion</th>
+                            <th>Sign Lord</th>
+                            <th>Star Lord</th>
+                            <th>Sub Lord</th>
+                            <th>Zodiac</th>
+                            <th>Nakshatra</th>
+                            <th>Pada</th>
+                            <th>Pos in Zodiac</th>
+                            <th>Declination</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                """, unsafe_allow_html=True)
+                
+                for _, row in pos_df.iterrows():
+                    st.markdown(f"""
+                    <tr>
+                        <td>{row['Planet']}</td>
+                        <td>{row['Date']}</td>
+                        <td>{row['Time']}</td>
+                        <td>{row['Motion']}</td>
+                        <td>{row['Sign Lord']}</td>
+                        <td>{row['Star Lord']}</td>
+                        <td>{row['Sub Lord']}</td>
+                        <td>{row['Zodiac']}</td>
+                        <td>{row['Nakshatra']}</td>
+                        <td>{row['Pada']}</td>
+                        <td>{row['Pos in Zodiac']}</td>
+                        <td>{row['Declination']}</td>
+                    </tr>
+                    """, unsafe_allow_html=True)
+                
+                st.markdown("""
+                    </tbody>
+                </table>
+                """, unsafe_allow_html=True)
             else:
                 st.info("Planetary positions not available")
+        
+        with tab3:
+            st.header("Detailed Astrological Analysis")
             
             # Display planetary aspects
             st.subheader("Planetary Aspects")
             
+            # Get the first time slot for planetary aspects
+            time_slot = selected_time_slot if selected_time_slot else time_slots[0]
+            start_time_str, end_time_str = time_slot
+            start_hour, start_minute = map(int, start_time_str.split(':'))
+            start_time = datetime.combine(selected_date, datetime.min.time()) + timedelta(hours=start_hour, minutes=start_minute)
+            
+            positions = calculate_planetary_positions_detailed(start_time)
             aspects = calculate_planetary_aspects(positions)
             
             if aspects:
@@ -1045,7 +1086,7 @@ def main():
                 start_time = datetime.combine(selected_date, datetime.min.time()) + timedelta(hours=start_hour, minutes=start_minute)
                 
                 # Calculate planetary positions and aspects
-                positions = calculate_planetary_positions(start_time)
+                positions = calculate_planetary_positions_detailed(start_time)
                 aspects = calculate_planetary_aspects(positions)
                 
                 # Generate signals
@@ -1057,7 +1098,8 @@ def main():
                     'Bullish Strength': signal_data['bullish_strength'],
                     'Bearish Strength': signal_data['bearish_strength'],
                     'Strongest Aspect': signal_data['strongest_aspect'],
-                    'All Aspects': signal_data['all_aspects']
+                    'All Aspects': signal_data['all_aspects'],
+                    'Planetary Positions': positions
                 })
             
             # Display detailed report
