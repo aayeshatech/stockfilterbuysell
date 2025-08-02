@@ -117,6 +117,20 @@ st.markdown("""
         border-left-color: #d62728;
         background-color: #fff0f0;
     }
+    .date-selector {
+        background-color: #f8f9fa;
+        padding: 1rem;
+        border-radius: 0.5rem;
+        margin-bottom: 1rem;
+    }
+    .report-header {
+        font-size: 1.5rem;
+        color: #1f77b4;
+        margin-bottom: 1rem;
+        padding: 0.5rem;
+        background-color: #f8f9fa;
+        border-radius: 0.25rem;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -571,61 +585,23 @@ def format_recommendation_badge(recommendation_class, recommendation):
     """Format recommendation as HTML badge"""
     return f"<span class='buy-sell-badge {recommendation_class}'>{recommendation}</span>"
 
-# Main dashboard
-def main():
-    st.markdown('<h1 class="main-header">🌌 Planetary Transit Trading Dashboard</h1>', unsafe_allow_html=True)
-    st.markdown('<p style="text-align:center; color:gray;">Real-time bullish/bearish signals based on planetary aspects</p>', unsafe_allow_html=True)
-    
-    # Load watchlist
-    watchlist, sectors = load_watchlist()
-    
-    # Sidebar controls
-    st.sidebar.header("Dashboard Controls")
-    
-    # Refresh settings
-    auto_refresh = st.sidebar.checkbox("Auto Refresh", value=True)
-    refresh_interval = st.sidebar.slider("Refresh Interval (seconds)", 30, 300, 60)
-    
-    # Sector filter
-    all_sectors = list(set(sectors.values()))
-    selected_sectors = st.sidebar.multiselect(
-        "Filter by Sector",
-        options=all_sectors,
-        default=all_sectors
-    )
-    
-    # Signal strength filter
-    min_strength = st.sidebar.slider("Minimum Signal Strength", 0.1, 1.0, 0.5)
-    
-    # Symbol search
-    search_term = st.sidebar.text_input("Search Symbol", "")
-    
-    # Current time
-    current_time = datetime.now()
+# Generate complete report for selected date
+def generate_complete_report(selected_date, watchlist, sectors):
+    """Generate complete astrological report for selected date"""
+    # Use noon time for the report
+    report_time = selected_date.replace(hour=12, minute=0, second=0, microsecond=0)
     
     # Calculate planetary positions and aspects
-    positions = calculate_planetary_positions(current_time)
+    positions = calculate_planetary_positions(report_time)
     aspects = calculate_planetary_aspects(positions)
     
-    # Main content area
-    col1, col2, col3 = st.columns([3, 2, 2])
-    
-    # Generate signals for watchlist
-    signal_data = []
+    # Generate signals for all symbols
+    report_data = []
     for symbol, ticker in watchlist.items():
         sector = sectors.get(symbol, 'Unknown')
-        if sector not in selected_sectors:
-            continue
-            
-        # Apply search filter if provided
-        if search_term and search_term.lower() not in symbol.lower():
-            continue
-            
-        # Generate signals
-        signals = generate_trading_signals(aspects, symbol, sector, current_time)
         
-        # Filter signals by strength
-        signals = [s for s in signals if s['strength'] >= min_strength]
+        # Generate signals
+        signals = generate_trading_signals(aspects, symbol, sector, report_time)
         
         # Calculate overall signal
         bullish_strength = sum(s['strength'] for s in signals if s['type'] == 'bullish')
@@ -652,11 +628,9 @@ def main():
             overall_signal = "⚖ Neutral"
             signal_class = "signal-neutral"
         
-        signal_data.append({
+        report_data.append({
             'Symbol': symbol,
             'Sector': sector,
-            'Price': "N/A",  # We don't have market data without API
-            'Change %': "N/A",
             'Signal': overall_signal,
             'Signal Class': signal_class,
             'Recommendation': recommendation,
@@ -668,244 +642,343 @@ def main():
             'Transit Details': [s['detail'] for s in signals]
         })
     
-    # Display signals table
-    with col1:
-        st.header("Watchlist Signals")
-        
-        if signal_data:
-            # Create DataFrame
-            signal_df = pd.DataFrame(signal_data)
-            
-            # Format recommendation badges
-            signal_df['Recommendation'] = signal_df.apply(
-                lambda row: format_recommendation_badge(row['Recommendation Class'], row['Recommendation']), 
-                axis=1
-            )
-            
-            # Display with styling
-            st.dataframe(
-                signal_df[['Symbol', 'Sector', 'Price', 'Change %', 'Recommendation', 'Signal', 'Bullish Strength', 'Bearish Strength', 'Recent Signals']]
-                .style.applymap(
-                    lambda x: f"color: {'green' if 'Bullish' in x else 'red' if 'Bearish' in x else 'gray'}",
-                    subset=['Signal']
-                ),
-                use_container_width=True,
-                height=600
-            )
-        else:
-            st.info("No signals generated for selected filters")
+    return positions, aspects, report_data
+
+# Main dashboard
+def main():
+    st.markdown('<h1 class="main-header">🌌 Planetary Transit Trading Dashboard</h1>', unsafe_allow_html=True)
+    st.markdown('<p style="text-align:center; color:gray;">Astrological analysis for trading decisions</p>', unsafe_allow_html=True)
     
-    # Display planetary positions
+    # Load watchlist
+    watchlist, sectors = load_watchlist()
+    
+    # Date selection section
+    st.markdown('<div class="date-selector">', unsafe_allow_html=True)
+    st.subheader("📅 Select Date for Analysis")
+    col1, col2, col3 = st.columns([1, 2, 1])
+    
+    with col1:
+        selected_date = st.date_input(
+            "Select Date",
+            value=datetime.now().date(),
+            min_value=datetime(2000, 1, 1),
+            max_value=datetime.now().date() + timedelta(days=365)
+        )
+    
     with col2:
-        st.header("Planetary Positions")
+        st.markdown("###")
+        if st.button("Generate Report", type="primary"):
+            st.session_state.report_generated = True
+            st.session_state.selected_date = selected_date
+            st.rerun()
+    
+    with col3:
+        st.markdown("###")
+        if st.button("Use Current Date"):
+            st.session_state.selected_date = datetime.now().date()
+            st.session_state.report_generated = True
+            st.rerun()
+    
+    st.markdown('</div>', unsafe_allow_html=True)
+    
+    # Initialize session state
+    if 'report_generated' not in st.session_state:
+        st.session_state.report_generated = False
+    if 'selected_date' not in st.session_state:
+        st.session_state.selected_date = datetime.now().date()
+    
+    # Generate report if date is selected
+    if st.session_state.report_generated:
+        selected_date = st.session_state.selected_date
         
-        if positions:
-            # Create positions DataFrame
-            pos_data = []
-            for planet, longitude in positions.items():
-                pos_data.append({
-                    'Planet': planet,
-                    'Position': format_planetary_position(longitude),
-                    'Longitude': round(longitude, 2)
-                })
+        # Display report header
+        st.markdown(f'<div class="report-header">📊 Astrological Report for {selected_date.strftime("%B %d, %Y")}</div>', unsafe_allow_html=True)
+        
+        # Generate complete report
+        positions, aspects, report_data = generate_complete_report(selected_date, watchlist, sectors)
+        
+        # Sidebar controls
+        st.sidebar.header("Dashboard Controls")
+        
+        # Sector filter
+        all_sectors = list(set(sectors.values()))
+        selected_sectors = st.sidebar.multiselect(
+            "Filter by Sector",
+            options=all_sectors,
+            default=all_sectors
+        )
+        
+        # Signal strength filter
+        min_strength = st.sidebar.slider("Minimum Signal Strength", 0.1, 1.0, 0.5)
+        
+        # Symbol search
+        search_term = st.sidebar.text_input("Search Symbol", "")
+        
+        # Main content area
+        col1, col2, col3 = st.columns([3, 2, 2])
+        
+        # Filter report data based on sidebar controls
+        filtered_report_data = []
+        for data in report_data:
+            sector = data['Sector']
+            symbol = data['Symbol']
             
-            pos_df = pd.DataFrame(pos_data)
-            st.dataframe(pos_df, use_container_width=True)
+            # Apply sector filter
+            if sector not in selected_sectors:
+                continue
             
-            st.subheader("Planetary Aspects")
+            # Apply search filter
+            if search_term and search_term.lower() not in symbol.lower():
+                continue
+            
+            # Apply signal strength filter
+            if data['Bullish Strength'] < min_strength and data['Bearish Strength'] < min_strength:
+                continue
+            
+            filtered_report_data.append(data)
+        
+        # Display signals table
+        with col1:
+            st.header("Buy/Sell Recommendations")
+            
+            if filtered_report_data:
+                # Create DataFrame
+                report_df = pd.DataFrame(filtered_report_data)
+                
+                # Format recommendation badges
+                report_df['Recommendation'] = report_df.apply(
+                    lambda row: format_recommendation_badge(row['Recommendation Class'], row['Recommendation']), 
+                    axis=1
+                )
+                
+                # Display with styling
+                st.dataframe(
+                    report_df[['Symbol', 'Sector', 'Recommendation', 'Signal', 'Bullish Strength', 'Bearish Strength', 'Recent Signals']]
+                    .style.applymap(
+                        lambda x: f"color: {'green' if 'Bullish' in x else 'red' if 'Bearish' in x else 'gray'}",
+                        subset=['Signal']
+                    ),
+                    use_container_width=True,
+                    height=600
+                )
+            else:
+                st.info("No signals found for selected filters")
+        
+        # Display planetary positions
+        with col2:
+            st.header("Planetary Positions")
+            
+            if positions:
+                # Create positions DataFrame
+                pos_data = []
+                for planet, longitude in positions.items():
+                    pos_data.append({
+                        'Planet': planet,
+                        'Position': format_planetary_position(longitude),
+                        'Longitude': round(longitude, 2)
+                    })
+                
+                pos_df = pd.DataFrame(pos_data)
+                st.dataframe(pos_df, use_container_width=True)
+                
+                st.subheader("Planetary Aspects")
+                
+                if aspects:
+                    aspect_df = pd.DataFrame(aspects)
+                    aspect_df = aspect_df.sort_values('strength', ascending=False)
+                    aspect_df['strength'] = aspect_df['strength'].apply(lambda x: f"{x:.2f}")
+                    aspect_df['angle'] = aspect_df['angle'].apply(lambda x: f"{x:.1f}°")
+                    
+                    # Display aspects with color coding
+                    for _, aspect in aspect_df.iterrows():
+                        aspect_class = "aspect-bullish" if aspect['strength'] > '0.70' else "aspect-bearish" if aspect['strength'] < '0.30' else ""
+                        st.markdown(
+                            f"<div class='aspect-detail {aspect_class}'>"
+                            f"<strong>{aspect['planet1']} - {aspect['planet2']}</strong> {aspect['aspect']} "
+                            f"({aspect['angle']}, Strength: {aspect['strength']})</div>", 
+                            unsafe_allow_html=True
+                        )
+                else:
+                    st.info("No significant aspects at this time")
+            else:
+                st.info("Planetary positions not available")
+        
+        # Display sector overview
+        with col3:
+            st.header("Sector Overview")
+            
+            # Calculate sector sentiment
+            sector_sentiment = {}
+            for sector in selected_sectors:
+                sector_signals = [s for s in filtered_report_data if s['Sector'] == sector]
+                if sector_signals:
+                    bullish = sum(1 for s in sector_signals if "Bullish" in s['Signal'])
+                    bearish = sum(1 for s in sector_signals if "Bearish" in s['Signal'])
+                    neutral = len(sector_signals) - bullish - bearish
+                    
+                    sector_sentiment[sector] = {
+                        'Bullish': bullish,
+                        'Bearish': bearish,
+                        'Neutral': neutral,
+                        'Total': len(sector_signals)
+                    }
+            
+            if sector_sentiment:
+                sentiment_df = pd.DataFrame.from_dict(sector_sentiment, orient='index')
+                st.dataframe(sentiment_df, use_container_width=True)
+                
+                st.markdown("### Market Sentiment")
+                total_bullish = sum(d['Bullish'] for d in sector_sentiment.values())
+                total_bearish = sum(d['Bearish'] for d in sector_sentiment.values())
+                total_neutral = sum(d['Neutral'] for d in sector_sentiment.values())
+                
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.metric("Bullish", total_bullish, delta=None)
+                with col2:
+                    st.metric("Bearish", total_bearish, delta=None)
+                with col3:
+                    st.metric("Neutral", total_neutral, delta=None)
+        
+        # Detailed transit information section
+        st.header("Detailed Astrological Analysis")
+        
+        # Create tabs for different views
+        tab1, tab2, tab3 = st.tabs(["Symbol Details", "All Aspects", "Summary"])
+        
+        with tab1:
+            st.subheader("Symbol-wise Astrological Analysis")
+            
+            # Symbol selector
+            symbol_options = [s['Symbol'] for s in filtered_report_data]
+            if symbol_options:
+                selected_symbol = st.selectbox("Select Symbol for Detailed Analysis", options=symbol_options)
+                
+                if selected_symbol:
+                    symbol_data = next(s for s in filtered_report_data if s['Symbol'] == selected_symbol)
+                    
+                    # Display symbol details
+                    col1, col2 = st.columns(2)
+                    
+                    with col1:
+                        st.markdown(f"### {selected_symbol}")
+                        st.markdown(f"**Sector:** {symbol_data['Sector']}")
+                        st.markdown(f"**Signal:** <span class='{symbol_data['Signal Class']}'>{symbol_data['Signal']}</span>", unsafe_allow_html=True)
+                        st.markdown(f"**Recommendation:** {format_recommendation_badge(symbol_data['Recommendation Class'], symbol_data['Recommendation'])}", unsafe_allow_html=True)
+                    
+                    with col2:
+                        st.markdown("### Signal Strength")
+                        st.markdown(f"**Bullish Strength:** {symbol_data['Bullish Strength']}")
+                        st.markdown(f"**Bearish Strength:** {symbol_data['Bearish Strength']}")
+                        
+                        # Signal strength bars
+                        st.progress(symbol_data['Bullish Strength'] / max(symbol_data['Bullish Strength'] + symbol_data['Bearish Strength'], 0.001))
+                        st.markdown(f"<span style='color: green'>Bullish: {symbol_data['Bullish Strength']:.2f}</span>", unsafe_allow_html=True)
+                        st.progress(symbol_data['Bearish Strength'] / max(symbol_data['Bullish Strength'] + symbol_data['Bearish Strength'], 0.001))
+                        st.markdown(f"<span style='color: red'>Bearish: {symbol_data['Bearish Strength']:.2f}</span>", unsafe_allow_html=True)
+                    
+                    # Display transit details
+                    st.markdown("### Active Transits")
+                    if symbol_data['Transit Details']:
+                        for detail in symbol_data['Transit Details']:
+                            st.markdown(f"<div class='transit-detail'>🔮 {detail}</div>", unsafe_allow_html=True)
+                    else:
+                        st.info("No significant transits affecting this symbol at this time")
+            else:
+                st.info("No symbols found for selected filters")
+        
+        with tab2:
+            st.subheader("All Planetary Aspects")
             
             if aspects:
-                aspect_df = pd.DataFrame(aspects)
-                aspect_df = aspect_df.sort_values('strength', ascending=False)
-                aspect_df['strength'] = aspect_df['strength'].apply(lambda x: f"{x:.2f}")
-                aspect_df['angle'] = aspect_df['angle'].apply(lambda x: f"{x:.1f}°")
+                # Create detailed aspects table
+                aspect_details = []
+                for aspect in aspects:
+                    aspect_details.append({
+                        'Planet 1': aspect['planet1'],
+                        'Planet 2': aspect['planet2'],
+                        'Aspect': aspect['aspect'],
+                        'Angle': f"{aspect['angle']:.1f}°",
+                        'Strength': aspect['strength'],
+                        'Orb': f"{aspect['orb_used']:.1f}°",
+                        'Type': 'Bullish' if aspect['strength'] > 0.7 else 'Bearish' if aspect['strength'] < 0.3 else 'Neutral'
+                    })
                 
-                # Display aspects with color coding
-                for _, aspect in aspect_df.iterrows():
-                    aspect_class = "aspect-bullish" if aspect['strength'] > '0.70' else "aspect-bearish" if aspect['strength'] < '0.30' else ""
-                    st.markdown(
-                        f"<div class='aspect-detail {aspect_class}'>"
-                        f"<strong>{aspect['planet1']} - {aspect['planet2']}</strong> {aspect['aspect']} "
-                        f"({aspect['angle']}, Strength: {aspect['strength']})</div>", 
-                        unsafe_allow_html=True
-                    )
+                aspect_df = pd.DataFrame(aspect_details)
+                aspect_df = aspect_df.sort_values('Strength', ascending=False)
+                
+                # Color code the type column
+                def highlight_type(val):
+                    color = 'green' if val == 'Bullish' else 'red' if val == 'Bearish' else 'gray'
+                    return f'color: {color}'
+                
+                st.dataframe(
+                    aspect_df.style.applymap(highlight_type, subset=['Type']),
+                    use_container_width=True
+                )
             else:
                 st.info("No significant aspects at this time")
-        else:
-            st.info("Planetary positions not available")
-    
-    # Display sector overview
-    with col3:
-        st.header("Sector Overview")
         
-        # Calculate sector sentiment
-        sector_sentiment = {}
-        for sector in selected_sectors:
-            sector_signals = [s for s in signal_data if s['Sector'] == sector]
-            if sector_signals:
-                bullish = sum(1 for s in sector_signals if "Bullish" in s['Signal'])
-                bearish = sum(1 for s in sector_signals if "Bearish" in s['Signal'])
-                neutral = len(sector_signals) - bullish - bearish
-                
-                sector_sentiment[sector] = {
-                    'Bullish': bullish,
-                    'Bearish': bearish,
-                    'Neutral': neutral,
-                    'Total': len(sector_signals)
-                }
-        
-        if sector_sentiment:
-            sentiment_df = pd.DataFrame.from_dict(sector_sentiment, orient='index')
-            st.dataframe(sentiment_df, use_container_width=True)
+        with tab3:
+            st.subheader("Summary Report")
             
-            st.markdown("### Market Sentiment")
-            total_bullish = sum(d['Bullish'] for d in sector_sentiment.values())
-            total_bearish = sum(d['Bearish'] for d in sector_sentiment.values())
-            total_neutral = sum(d['Neutral'] for d in sector_sentiment.values())
+            # Overall market analysis
+            st.markdown("### Overall Market Analysis")
+            
+            # Count recommendations
+            buy_count = sum(1 for s in filtered_report_data if s['Recommendation'] == 'BUY')
+            sell_count = sum(1 for s in filtered_report_data if s['Recommendation'] == 'SELL')
+            hold_count = sum(1 for s in filtered_report_data if s['Recommendation'] == 'HOLD')
             
             col1, col2, col3 = st.columns(3)
             with col1:
-                st.metric("Bullish", total_bullish, delta=None)
+                st.metric("BUY Signals", buy_count)
             with col2:
-                st.metric("Bearish", total_bearish, delta=None)
+                st.metric("SELL Signals", sell_count)
             with col3:
-                st.metric("Neutral", total_neutral, delta=None)
-    
-    # Detailed transit information section
-    st.header("Detailed Planetary Transit Information")
-    
-    # Create tabs for different views
-    tab1, tab2, tab3 = st.tabs(["Symbol Details", "All Aspects", "Timeline"])
-    
-    with tab1:
-        st.subheader("Symbol-wise Transit Details")
-        
-        # Symbol selector
-        selected_symbol = st.selectbox("Select Symbol", options=[s['Symbol'] for s in signal_data])
-        
-        if selected_symbol:
-            symbol_data = next(s for s in signal_data if s['Symbol'] == selected_symbol)
+                st.metric("HOLD Signals", hold_count)
             
-            # Display symbol details
+            # Top bullish and bearish symbols
+            st.markdown("### Top Signals")
+            
             col1, col2 = st.columns(2)
             
             with col1:
-                st.markdown(f"### {selected_symbol}")
-                st.markdown(f"**Sector:** {symbol_data['Sector']}")
-                st.markdown(f"**Signal:** <span class='{symbol_data['Signal Class']}'>{symbol_data['Signal']}</span>", unsafe_allow_html=True)
-                st.markdown(f"**Recommendation:** {format_recommendation_badge(symbol_data['Recommendation Class'], symbol_data['Recommendation'])}", unsafe_allow_html=True)
+                st.markdown("#### Top Bullish Signals")
+                top_bullish = sorted(filtered_report_data, key=lambda x: x['Bullish Strength'], reverse=True)[:5]
+                for symbol in top_bullish:
+                    st.markdown(f"- **{symbol['Symbol']}** ({symbol['Sector']}) - Strength: {symbol['Bullish Strength']:.2f}")
             
             with col2:
-                st.markdown("### Signal Strength")
-                st.markdown(f"**Bullish Strength:** {symbol_data['Bullish Strength']}")
-                st.markdown(f"**Bearish Strength:** {symbol_data['Bearish Strength']}")
-                
-                # Signal strength bars
-                st.progress(symbol_data['Bullish Strength'] / max(symbol_data['Bullish Strength'] + symbol_data['Bearish Strength'], 0.001))
-                st.markdown(f"<span style='color: green'>Bullish: {symbol_data['Bullish Strength']:.2f}</span>", unsafe_allow_html=True)
-                st.progress(symbol_data['Bearish Strength'] / max(symbol_data['Bullish Strength'] + symbol_data['Bearish Strength'], 0.001))
-                st.markdown(f"<span style='color: red'>Bearish: {symbol_data['Bearish Strength']:.2f}</span>", unsafe_allow_html=True)
+                st.markdown("#### Top Bearish Signals")
+                top_bearish = sorted(filtered_report_data, key=lambda x: x['Bearish Strength'], reverse=True)[:5]
+                for symbol in top_bearish:
+                    st.markdown(f"- **{symbol['Symbol']}** ({symbol['Sector']}) - Strength: {symbol['Bearish Strength']:.2f}")
             
-            # Display transit details
-            st.markdown("### Active Transits")
-            if symbol_data['Transit Details']:
-                for detail in symbol_data['Transit Details']:
-                    st.markdown(f"<div class='transit-detail'>🔮 {detail}</div>", unsafe_allow_html=True)
-            else:
-                st.info("No significant transits affecting this symbol at this time")
-    
-    with tab2:
-        st.subheader("All Planetary Aspects")
-        
-        if aspects:
-            # Create detailed aspects table
-            aspect_details = []
-            for aspect in aspects:
-                aspect_details.append({
-                    'Planet 1': aspect['planet1'],
-                    'Planet 2': aspect['planet2'],
-                    'Aspect': aspect['aspect'],
-                    'Angle': f"{aspect['angle']:.1f}°",
-                    'Strength': aspect['strength'],
-                    'Orb': f"{aspect['orb_used']:.1f}°",
-                    'Type': 'Bullish' if aspect['strength'] > 0.7 else 'Bearish' if aspect['strength'] < 0.3 else 'Neutral'
-                })
+            # Sector-wise breakdown
+            st.markdown("### Sector-wise Breakdown")
             
-            aspect_df = pd.DataFrame(aspect_details)
-            aspect_df = aspect_df.sort_values('Strength', ascending=False)
-            
-            # Color code the type column
-            def highlight_type(val):
-                color = 'green' if val == 'Bullish' else 'red' if val == 'Bearish' else 'gray'
-                return f'color: {color}'
-            
-            st.dataframe(
-                aspect_df.style.applymap(highlight_type, subset=['Type']),
-                use_container_width=True
-            )
-        else:
-            st.info("No significant aspects at this time")
-    
-    with tab3:
-        st.header("Intraday Signal Timeline")
-        
-        # Generate timeline data for the day
-        timeline_data = []
-        start_time = current_time.replace(hour=9, minute=15, second=0, microsecond=0)  # Market open
-        end_time = current_time.replace(hour=15, minute=30, second=0, microsecond=0)    # Market close
-        
-        # Generate signals at 15-minute intervals
-        time_point = start_time
-        while time_point <= end_time and time_point <= current_time:
-            # Calculate positions at this time
-            positions_at_time = calculate_planetary_positions(time_point)
-            aspects_at_time = calculate_planetary_aspects(positions_at_time)
-            
-            # Generate signals for all symbols
-            for symbol, ticker in watchlist.items():
-                sector = sectors.get(symbol, 'Unknown')
-                if sector not in selected_sectors:
-                    continue
+            sector_breakdown = {}
+            for sector in selected_sectors:
+                sector_symbols = [s for s in filtered_report_data if s['Sector'] == sector]
+                if sector_symbols:
+                    buy_count = sum(1 for s in sector_symbols if s['Recommendation'] == 'BUY')
+                    sell_count = sum(1 for s in sector_symbols if s['Recommendation'] == 'SELL')
+                    hold_count = sum(1 for s in sector_symbols if s['Recommendation'] == 'HOLD')
                     
-                signals = generate_trading_signals(aspects_at_time, symbol, sector, time_point)
-                signals = [s for s in signals if s['strength'] >= min_strength]
-                
-                for signal in signals:
-                    timeline_data.append({
-                        'Time': time_point.strftime("%H:%M"),
-                        'Symbol': symbol,
-                        'Signal': signal['type'],
-                        'Strength': signal['strength'],
-                        'Reason': signal['reason']
-                    })
+                    sector_breakdown[sector] = {
+                        'BUY': buy_count,
+                        'SELL': sell_count,
+                        'HOLD': hold_count,
+                        'Total': len(sector_symbols)
+                    }
             
-            # Next time point
-            time_point += timedelta(minutes=15)
-        
-        # Display timeline
-        if timeline_data:
-            timeline_df = pd.DataFrame(timeline_data)
-            
-            # Show recent signals in a table
-            st.subheader("Recent Signals")
-            recent_signals = sorted(timeline_data, key=lambda x: x['Time'], reverse=True)[:10]
-            recent_df = pd.DataFrame(recent_signals)
-            recent_df['Strength'] = recent_df['Strength'].apply(lambda x: f"{x:.2f}")
-            st.dataframe(recent_df, use_container_width=True)
-        else:
-            st.info("No signals generated in the timeline")
-    
-    # Auto-refresh
-    if auto_refresh:
-        st.session_state.last_refresh = time.time()
-        time_elapsed = time.time() - st.session_state.last_refresh
-        
-        if time_elapsed >= refresh_interval:
-            st.rerun()
-        
-        # Show refresh countdown
-        remaining_time = refresh_interval - time_elapsed
-        st.sidebar.markdown(f"**Next refresh in:** {int(remaining_time)} seconds")
+            if sector_breakdown:
+                breakdown_df = pd.DataFrame.from_dict(sector_breakdown, orient='index')
+                st.dataframe(breakdown_df, use_container_width=True)
+    else:
+        # Show instructions when no report is generated
+        st.info("👆 Please select a date and click 'Generate Report' to view the astrological analysis")
 
 if __name__ == "__main__":
     main()
