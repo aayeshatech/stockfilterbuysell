@@ -1,30 +1,27 @@
-"""Astro-Trading Dashboard with Sample Planetary Data"""
+"""Astro-Trading Dashboard with Sample Data"""
 import streamlit as st
 from datetime import datetime
 import pandas as pd
 import plotly.graph_objects as go
 
+# First install required packages by running:
+# pip install streamlit pandas plotly
+
 # Sample planetary data
-def get_sample_transit_data(date: datetime) -> pd.DataFrame:
+def get_sample_transit_data():
     """Generate sample planetary transit data"""
-    sample_data = {
-        "2023-01-01": [
-            ["Sun", "00:00:00", "D", "Capricorn", 280, "Uttara Ashadha", 4, 0.0],
-            ["Moon", "00:00:00", "D", "Gemini", 60, "Ardra", 1, 0.0],
-            ["Mars", "00:00:00", "D", "Gemini", 75, "Punarvasu", 1, 0.0],
-            ["Mercury", "00:00:00", "R", "Sagittarius", 240, "Purva Ashadha", 3, 0.0],
-            ["Jupiter", "00:00:00", "D", "Pisces", 350, "Revati", 4, 0.0],
-            ["Venus", "00:00:00", "D", "Capricorn", 290, "Uttara Ashadha", 4, 0.0],
-            ["Saturn", "00:00:00", "D", "Aquarius", 320, "Purva Bhadrapada", 2, 0.0]
-        ]
-    }
-    date_str = date.strftime("%Y-%m-%d")
-    if date_str in sample_data:
-        return pd.DataFrame(sample_data[date_str], columns=[
-            "Planet", "Time", "Motion", "Zodiac", "Degree", 
-            "Nakshatra", "Pada", "Declination"
-        ])
-    return pd.DataFrame()
+    return pd.DataFrame([
+        ["Sun", "00:00:00", "D", "Capricorn", 280, "Uttara Ashadha", 4, 0.0],
+        ["Moon", "00:00:00", "D", "Gemini", 60, "Ardra", 1, 0.0],
+        ["Mars", "00:00:00", "D", "Gemini", 75, "Punarvasu", 1, 0.0],
+        ["Mercury", "00:00:00", "R", "Sagittarius", 240, "Purva Ashadha", 3, 0.0],
+        ["Jupiter", "00:00:00", "D", "Pisces", 350, "Revati", 4, 0.0],
+        ["Venus", "00:00:00", "D", "Capricorn", 290, "Uttara Ashadha", 4, 0.0],
+        ["Saturn", "00:00:00", "D", "Aquarius", 320, "Purva Bhadrapada", 2, 0.0]
+    ], columns=[
+        "Planet", "Time", "Motion", "Zodiac", "Degree", 
+        "Nakshatra", "Pada", "Declination"
+    ])
 
 def plot_planetary_positions(transits: pd.DataFrame):
     """Create polar plot of planetary positions"""
@@ -54,9 +51,8 @@ def plot_planetary_positions(transits: pd.DataFrame):
                 rotation=90,
                 period=360,
                 tickvals=list(range(0, 360, 30))
-            ),
-            radialaxis=dict(visible=False)
         ),
+        radialaxis=dict(visible=False),
         showlegend=True,
         height=500
     )
@@ -70,20 +66,17 @@ def main():
         initial_sidebar_state="expanded"
     )
     
-    st.title("🌌 Planetary Transit Visualization (Sample Data)")
-    
-    # Date selection
-    analysis_date = st.date_input("Select Date", datetime(2023, 1, 1))
+    st.title("🌌 Planetary Transit Visualization")
     
     # Get sample data
-    transits = get_sample_transit_data(analysis_date)
+    transits = get_sample_transit_data()
     
     if not transits.empty:
         plot_planetary_positions(transits)
         st.subheader("Planetary Transit Data")
         st.dataframe(transits, use_container_width=True)
     else:
-        st.warning("Sample data only available for January 1, 2023")
+        st.warning("No transit data available")
 
 if __name__ == "__main__":
     main()
