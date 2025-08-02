@@ -1,4 +1,4 @@
-"""Global Markets Astro Dashboard with Color-Coded Transit Signals"""
+"""Advanced Astro-Trading Dashboard with Planetary Transit Analysis"""
 
 import streamlit as st
 from datetime import datetime, timedelta
@@ -7,6 +7,7 @@ import time
 import logging
 import yfinance as yf
 import ephem
+import pandas as pd
 from concurrent.futures import ThreadPoolExecutor
 from functools import lru_cache
 from typing import Dict, List, Tuple
@@ -15,309 +16,246 @@ from typing import Dict, List, Tuple
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# ================== GLOBAL MARKETS CONFIG ==================
+# ================== CONFIGURATION ==================
 GLOBAL_SYMBOLS = [
-    "GC=F",  # Gold
-    "SI=F",  # Silver
-    "CL=F",  # Crude Oil
-    "NG=F",  # Natural Gas
-    "BTC-USD",  # Bitcoin
-    "^DJI",  # Dow Jones
-    "^GSPC",  # S&P 500
-    "^IXIC",  # Nasdaq
+    "GC=F", "SI=F", "CL=F", "NG=F", 
+    "BTC-USD", "^DJI", "^GSPC", "^IXIC",
+    "AAPL", "MSFT", "TSLA", "NVDA", "AMZN"
 ]
 
 PLANET_MAPPING = {
     "GC=F": "Sun", "SI=F": "Moon", "CL=F": "Mars", "NG=F": "Venus",
-    "BTC-USD": "Uranus", "^DJI": "Jupiter", "^GSPC": "Saturn", "^IXIC": "Mercury"
+    "BTC-USD": "Uranus", "^DJI": "Jupiter", "^GSPC": "Saturn", 
+    "^IXIC": "Mercury", "AAPL": "Mercury", "MSFT": "Saturn",
+    "TSLA": "Uranus", "NVDA": "Mars", "AMZN": "Jupiter"
 }
 
-# Signal configurations
-EYE_SYMBOLS = {
-    "STRONG_BUY": "👁️🟢✨", 
-    "BUY": "👁️🟢",
-    "STRONG_SELL": "👁️🔴✨",
-    "SELL": "👁️🔴", 
-    "HOLD": "👁️⚪",
-    "WARNING": "👁️🟡"
+# Vedic Astrology Parameters
+NAKSHATRAS = {
+    "Ashwini": (0, 13, 20), "Bharani": (13, 20, 26, 40), 
+    "Pushya": (93, 20, 106, 40), "Anuradha": (213, 20, 226, 40),
+    "Jyeshtha": (226, 40, 240)
 }
 
-PLANET_EMOJIS = {
-    "Sun": "☀️", "Moon": "🌙", "Mercury": "☿", 
-    "Venus": "♀", "Mars": "♂", "Jupiter": "♃",
-    "Saturn": "♄", "Uranus": "♅", "Neptune": "♆",
-    "Pluto": "♇"
+ZODIAC_SIGNS = {
+    "Aries": (0, 30), "Taurus": (30, 60), "Gemini": (60, 90),
+    "Cancer": (90, 120), "Leo": (120, 150), "Virgo": (150, 180),
+    "Libra": (180, 210), "Scorpio": (210, 240), "Sagittarius": (240, 270)
 }
 
 # ================== CORE FUNCTIONS ==================
-@st.cache_data(ttl=60, show_spinner=False)
-def get_live_price(symbol: str) -> float:
-    """Get live market price"""
-    try:
-        clean_symbol = symbol.replace("^", "").replace("=F", "")
-        data = yf.Ticker(clean_symbol).history(period="1d", interval="1m", timeout=5)
-        return float(data["Close"].iloc[-1]) if not data.empty else 0.0
-    except Exception as e:
-        logger.warning(f"Price fetch failed for {symbol}: {str(e)}")
-        return 0.0
-
-@lru_cache(maxsize=128)
-def get_planet_transits(planet: str, timestamp: float) -> Dict:
-    """Calculate planetary transits and strengths"""
-    try:
-        now = datetime.fromtimestamp(timestamp, pytz.utc)
-        planet_obj = getattr(ephem, planet)()
-        observer = ephem.Observer()
-        observer.date = now
-        
-        planet_obj.compute(observer)
-        current_strength = float(planet_obj.alt / (ephem.pi/2))
-        
-        # Calculate next 3 transits
-        transits = []
-        transit_time = observer.next_transit(planet_obj)
-        
-        for _ in range(3):
-            transits.append(ephem.localtime(transit_time))
-            transit_time = observer.next_transit(planet_obj, start=transit_time + ephem.minute)
-        
-        # Check if currently in transit (1 hour window)
-        in_transit = any(abs((now - t).total_seconds()) < 3600 for t in transits[:1])
-        
-        return {
-            "current_strength": current_strength,
-            "next_transits": transits,
-            "in_transit": in_transit,
-            "effect": get_planet_effect(planet, current_strength, in_transit)
-        }
-    except Exception as e:
-        logger.warning(f"Planet calc error for {planet}: {str(e)}")
-        return {
-            "current_strength": 0.5,
-            "next_transits": [now, now + timedelta(hours=6), now + timedelta(hours=12)],
-            "in_transit": False,
-            "effect": "Neutral influence"
-        }
-
-def get_planet_effect(planet: str, strength: float, in_transit: bool) -> str:
-    """Get market effect description"""
-    effects = {
-        "Sun": {"high": "Bullish", "low": "Caution", "transit": "Volatile"},
-        "Moon": {"high": "Active", "low": "Uncertain", "transit": "Reversals"},
-        "Mars": {"high": "Strong", "low": "Weak", "transit": "Breakouts"},
-        "Venus": {"high": "Smooth", "low": "Choppy", "transit": "Tests"},
-        "Jupiter": {"high": "Expanding", "low": "Stalled", "transit": "Moves"},
-        "Saturn": {"high": "Stable", "low": "Restrictive", "transit": "Pressure"},
-        "Mercury": {"high": "Clear", "low": "Confused", "transit": "Changes"},
-        "Uranus": {"high": "Innovative", "low": "Stuck", "transit": "Shifts"}
+def get_vedic_analysis(planet: str, degree: float, nakshatra: str, pada: int) -> Dict:
+    """Analyze planetary position using Vedic astrology"""
+    analysis = {
+        "strength": 0.5,
+        "sentiment": "Neutral",
+        "aspects": []
     }
     
-    base = effects.get(planet, {"high": "Positive", "low": "Negative", "transit": "Active"})
-    return base["transit"] if in_transit else base["high"] if strength > 0.7 else base["low"] if strength < 0.3 else "Neutral"
-
-def get_planet(symbol: str) -> str:
-    """Get planet for symbol"""
-    return PLANET_MAPPING.get(symbol, "Sun")
-
-def calculate_signal(strength: float, planet: str, in_transit: bool) -> Tuple[str, str]:
-    """Determine trading signal"""
-    if in_transit:
-        if strength > 0.75: return "STRONG_BUY", f"Strong {planet} transit - Buy"
-        elif strength < 0.25: return "STRONG_SELL", f"Critical {planet} transit - Sell"
-        return "WARNING", f"{planet} transit - Caution"
+    # Calculate planetary strength
+    if planet in ["Sun", "Mars", "Jupiter"]:
+        if degree < 15 or degree > 345:
+            analysis["strength"] = 0.9  # Exalted
+        elif 165 < degree < 195:
+            analysis["strength"] = 0.3  # Debilitated
+    elif planet in ["Moon", "Venus"]:
+        if 60 < degree < 90:
+            analysis["strength"] = 0.9
+        elif 240 < degree < 270:
+            analysis["strength"] = 0.3
     
-    if strength > 0.8: return "STRONG_BUY", f"Favorable {planet} - Strong Buy"
-    elif strength > 0.6: return "BUY", f"Positive {planet} - Buy"
-    elif strength < 0.2: return "STRONG_SELL", f"Negative {planet} - Strong Sell"
-    elif strength < 0.4: return "SELL", f"Challenging {planet} - Sell"
-    return "HOLD", f"Neutral {planet} - Hold"
+    # Nakshatra-based analysis
+    if nakshatra in ["Pushya", "Rohini", "Uttara Phalguni"]:
+        analysis["strength"] = min(1.0, analysis["strength"] + 0.2)
+    elif nakshatra in ["Mula", "Ardra"]:
+        analysis["strength"] = max(0.1, analysis["strength"] - 0.2)
+    
+    # Determine market sentiment
+    if analysis["strength"] > 0.7:
+        analysis["sentiment"] = "Bullish"
+    elif analysis["strength"] < 0.3:
+        analysis["sentiment"] = "Bearish"
+    
+    return analysis
 
-def fetch_market_data(symbol: str, now: datetime) -> Dict:
-    """Get all data for a market symbol"""
-    timestamp = now.timestamp()
-    planet = get_planet(symbol)
-    transits = get_planet_transits(planet, timestamp)
-    price = get_live_price(symbol)
-    
-    signal, reason = calculate_signal(
-        transits["current_strength"], 
-        planet,
-        transits["in_transit"]
-    )
-    
-    return {
-        "symbol": symbol,
-        "planet": planet,
-        "price": price,
-        "signal": signal,
-        "reason": reason,
-        "strength": transits["current_strength"],
-        "next_transits": transits["next_transits"],
-        "in_transit": transits["in_transit"],
-        "effect": transits["effect"],
-        "planet_emoji": PLANET_EMOJIS.get(planet, "🪐"),
-        "signal_color": "green" if "BUY" in signal else "red" if "SELL" in signal else "gray"
+@st.cache_data(ttl=3600)
+def get_transit_data(date: datetime) -> pd.DataFrame:
+    """Get planetary transit data for a specific date"""
+    # This would normally connect to your ephemeris database
+    # Here we simulate with sample data
+    data = {
+        "Planet": ["Me", "Mo", "Mo", "Ve", "Mo", "Mo", "Mo", "Mo", "Mo", "Mo"],
+        "Date": ["2025-08-04"]*10,
+        "Time": ["00:55:55", "01:31:40", "05:30:19", "08:03:03", "09:01:57", 
+                "12:46:17", "14:18:29", "18:41:22", "20:00:05", "22:11:05"],
+        "Motion": ["R", "D", "D", "D", "D", "D", "D", "D", "D", "D"],
+        "Sign Lord": ["Mo", "Ma", "Ma", "Me", "Ma", "Ma", "Ma", "Ma", "Ma", "Ma"],
+        "Star Lord": ["Sa", "Sa", "Sa", "Ra", "Me", "Me", "Me", "Me", "Me", "Me"],
+        "Sub Lord": ["Ma", "Ra", "Ju", "Sa", "Me", "Ke", "Ve", "Su", "Mo", "Ma"],
+        "Zodiac": ["Cancer", "Scorpio", "Scorpio", "Gemini", "Scorpio", 
+                  "Scorpio", "Scorpio", "Scorpio", "Scorpio", "Scorpio"],
+        "Nakshatra": ["Pushya", "Anuradha", "Anuradha", "Ardra", "Jyeshtha",
+                     "Jyeshtha", "Jyeshtha", "Jyeshtha", "Jyeshtha", "Jyeshtha"],
+        "Pada": [3, 3, 4, 2, 1, 1, 1, 2, 2, 3],
+        "Pos in Zodiac": ["12°53'19\"", "12°53'20\"", "14°53'20\"", "10°26'40\"",
+                         "16°40'00\"", "18°33'20\"", "19°20'00\"", "21°33'20\"",
+                         "22°13'20\"", "23°20'00\""],
+        "Declination": [13.96, -26.47, -26.84, 22.00, -27.13, -27.42, -27.53,
+                       -27.81, -27.88, -28.00]
     }
+    return pd.DataFrame(data)
 
-def fetch_all_markets(symbols: List[str], now: datetime) -> List[Dict]:
-    """Fetch data for all markets"""
-    with ThreadPoolExecutor(max_workers=8) as executor:
-        return list(executor.map(lambda s: fetch_market_data(s, now), symbols))
+def analyze_transits(transits: pd.DataFrame) -> Dict:
+    """Analyze transits for trading signals"""
+    analysis = {
+        "bullish_planets": [],
+        "bearish_planets": [],
+        "key_events": [],
+        "overall_sentiment": "Neutral"
+    }
+    
+    for _, row in transits.iterrows():
+        planet = row["Planet"]
+        degree = float(row["Pos in Zodiac"].split("°")[0])
+        nakshatra = row["Nakshatra"]
+        pada = row["Pada"]
+        
+        vedic = get_vedic_analysis(planet, degree, nakshatra, pada)
+        
+        if vedic["sentiment"] == "Bullish":
+            analysis["bullish_planets"].append(planet)
+        elif vedic["sentiment"] == "Bearish":
+            analysis["bearish_planets"].append(planet)
+            
+        # Check for special configurations
+        if row["Motion"] == "R" and planet in ["Me", "Ve", "Ma"]:
+            analysis["key_events"].append(f"Retrograde {planet}")
+            
+    # Determine overall sentiment
+    bull_count = len(analysis["bullish_planets"])
+    bear_count = len(analysis["bearish_planets"])
+    
+    if bull_count - bear_count >= 2:
+        analysis["overall_sentiment"] = "Bullish"
+    elif bear_count - bull_count >= 2:
+        analysis["overall_sentiment"] = "Bearish"
+        
+    return analysis
+
+def get_stock_recommendations(sentiment: str, planet_analysis: Dict) -> List[str]:
+    """Generate stock recommendations based on astro analysis"""
+    recommendations = []
+    
+    if sentiment == "Bullish":
+        for symbol, planet in PLANET_MAPPING.items():
+            if planet in planet_analysis["bullish_planets"] and "^" not in symbol:
+                recommendations.append((symbol, "BUY"))
+                
+    elif sentiment == "Bearish":
+        for symbol, planet in PLANET_MAPPING.items():
+            if planet in planet_analysis["bearish_planets"] and "^" not in symbol:
+                recommendations.append((symbol, "SELL"))
+                
+    # Add additional filters based on planetary aspects
+    if "Retrograde Me" in planet_analysis["key_events"]:
+        recommendations = [r for r in recommendations if r[1] == "SELL" or "BTC" in r[0]]
+    
+    return recommendations
 
 # ================== STREAMLIT UI ==================
 def main():
     st.set_page_config(
-        page_title="Global Astro Trader",
+        page_title="Vedic Astro Trader Pro",
         layout="wide",
-        page_icon="🌐",
+        page_icon="♋",
         initial_sidebar_state="expanded"
     )
     
-    # Custom CSS
-    st.markdown("""
-    <style>
-        .market-card {
-            border-radius: 10px;
-            padding: 15px;
-            margin-bottom: 15px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            border-left: 5px solid;
-        }
-        .signal-buy { border-color: #00cc00; background-color: #e6ffe6; }
-        .signal-sell { border-color: #cc0000; background-color: #ffe6e6; }
-        .signal-hold { border-color: #666666; background-color: #f5f5f5; }
-        .transit-timeline {
-            background: #f8f9fa;
-            border-radius: 8px;
-            padding: 12px;
-            margin: 8px 0;
-        }
-        .transit-item {
-            padding: 8px;
-            margin: 4px 0;
-            border-radius: 6px;
-            border-left: 4px solid;
-        }
-        .buy-transit { border-color: #00aa00; background-color: #f0fff0; }
-        .sell-transit { border-color: #aa0000; background-color: #fff0f0; }
-        .neutral-transit { border-color: #666666; background-color: #f8f8f8; }
-        .planet-header {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            margin-bottom: 8px;
-        }
-    </style>
-    """, unsafe_allow_html=True)
+    st.title("♋ Vedic Astro-Trading System")
     
     # Sidebar controls
     with st.sidebar:
-        st.title("🌍 Market Controls")
-        selected_symbols = st.multiselect(
-            "Select Markets", 
-            GLOBAL_SYMBOLS,
-            default=GLOBAL_SYMBOLS
+        st.header("Analysis Parameters")
+        analysis_date = st.date_input("Select Date", datetime.now())
+        selected_planets = st.multiselect(
+            "Focus Planets", 
+            ["Sun", "Moon", "Mercury", "Venus", "Mars", "Jupiter", "Saturn"],
+            default=["Mercury", "Venus", "Mars"]
         )
-        live_mode = st.checkbox("Live Mode", True)
-        refresh_rate = st.selectbox("Refresh (sec)", [15, 30, 60], index=1)
-        st.markdown(f"**Last Update:** {datetime.now(pytz.utc).strftime('%H:%M:%S UTC')}")
+        live_mode = st.checkbox("Live Market Data", True)
     
-    # Main content
-    st.title("🌌 Planetary Trading Signals")
-    content = st.empty()
+    # Main dashboard
+    tab1, tab2, tab3 = st.tabs(["Transit Analysis", "Stock Recommendations", "Planetary Alignments"])
     
-    try:
-        while True:
-            start_time = time.time()
-            now = datetime.now(pytz.utc)
-            market_data = fetch_all_markets(selected_symbols, now)
+    with tab1:
+        st.subheader("Planetary Transit Analysis")
+        transit_data = get_transit_data(analysis_date)
+        analysis = analyze_transits(transit_data)
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.metric("Overall Market Sentiment", analysis["overall_sentiment"])
+            st.write("**Bullish Planets:**", ", ".join(analysis["bullish_planets"]))
+            st.write("**Bearish Planets:**", ", ".join(analysis["bearish_planets"]))
             
-            with content.container():
-                # Current Signals
-                st.subheader("📈 Active Market Signals")
-                cols = st.columns(4)
-                for i, data in enumerate(market_data):
-                    with cols[i % 4]:
-                        signal_class = f"signal-{data['signal'].lower().replace('strong_', '').replace('_', '-')}"
-                        price_display = f"{data['price']:,.2f}" if data['price'] > 0 else "N/A"
-                        st.markdown(f"""
-                        <div class="market-card {signal_class}">
-                            <div class="planet-header">
-                                <span style="font-size:1.2em">{data['planet_emoji']}</span>
-                                <h3>{data['symbol']}</h3>
-                            </div>
-                            <p><strong>Price:</strong> {price_display}</p>
-                            <p><strong style="color:{data['signal_color']}">
-                                {EYE_SYMBOLS[data['signal']]} {data['signal'].replace('_', ' ')}
-                            </strong></p>
-                            <p><small>{data['reason']}</small></p>
-                        </div>
-                        """, unsafe_allow_html=True)
-                
-                # Transit Timeline
-                st.subheader("⏳ Planetary Transit Timeline (Next 12 Hours)")
-                
-                # Collect all upcoming transits with signals
-                transit_events = []
-                for data in market_data:
-                    for transit_time in data["next_transits"]:
-                        if (transit_time - now).total_seconds() < 12*3600:
-                            # Predict signal at transit time
-                            transit_strength = 0.8 if data["strength"] > 0.7 else 0.2 if data["strength"] < 0.3 else 0.5
-                            transit_signal, _ = calculate_signal(
-                                transit_strength,
-                                data["planet"],
-                                True
-                            )
-                            transit_events.append({
-                                "time": transit_time,
-                                "symbol": data["symbol"],
-                                "planet": data["planet"],
-                                "emoji": data["planet_emoji"],
-                                "signal": transit_signal,
-                                "color": "green" if "BUY" in transit_signal else "red" if "SELL" in transit_signal else "gray"
-                            })
-                
-                # Sort and display
-                transit_events.sort(key=lambda x: x["time"])
-                for event in transit_events:
-                    time_diff = (event["time"] - now).total_seconds()/3600
-                    transit_class = "buy-transit" if "BUY" in event["signal"] else "sell-transit" if "SELL" in event["signal"] else "neutral-transit"
-                    st.markdown(f"""
-                    <div class="transit-timeline">
-                        <div class="transit-item {transit_class}">
-                            <div style="display:flex; justify-content:space-between;">
-                                <div>
-                                    <strong>{event['symbol']}</strong> - {event['planet']} {event['emoji']}
-                                </div>
-                                <div>
-                                    {event['time'].strftime('%H:%M UTC')}
-                                </div>
-                            </div>
-                            <div style="display:flex; justify-content:space-between; margin-top:6px;">
-                                <div>
-                                    Signal: <strong style="color:{event['color']}">
-                                        {EYE_SYMBOLS[event['signal']]} {event['signal'].replace('_', ' ')}
-                                    </strong>
-                                </div>
-                                <div>
-                                    In <strong>{time_diff:.1f} hours</strong>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    """, unsafe_allow_html=True)
-                
-                # Footer
-                st.caption(f"Updated: {now.strftime('%Y-%m-%d %H:%M:%S UTC')} | Processing time: {time.time()-start_time:.2f}s")
-            
-            if not live_mode: break
-            time.sleep(refresh_rate)
+        with col2:
+            st.write("**Key Events:**")
+            for event in analysis["key_events"]:
+                st.write(f"- {event}")
+        
+        st.dataframe(transit_data, use_container_width=True)
     
-    except Exception as e:
-        logger.error(f"Error: {str(e)}")
-        st.error("System error - please refresh")
-        st.exception(e)
+    with tab2:
+        st.subheader("Stock Trading Recommendations")
+        recommendations = get_stock_recommendations(
+            analysis["overall_sentiment"],
+            analysis
+        )
+        
+        if not recommendations:
+            st.warning("No strong recommendations based on current planetary positions")
+        else:
+            for symbol, action in recommendations:
+                col1, col2 = st.columns([1, 4])
+                with col1:
+                    st.metric(symbol, action)
+                with col2:
+                    if live_mode:
+                        try:
+                            ticker = yf.Ticker(symbol.replace("^", "").replace("=F", ""))
+                            data = ticker.history(period="1d", interval="1m")
+                            if not data.empty:
+                                current_price = data["Close"].iloc[-1]
+                                st.write(f"Current: ${current_price:,.2f}")
+                        except:
+                            st.write("Price data unavailable")
+    
+    with tab3:
+        st.subheader("Planetary Position Analysis")
+        st.write("Detailed Vedic astrology analysis of current planetary positions")
+        
+        for planet in selected_planets:
+            planet_data = transit_data[transit_data["Planet"] == planet[:2]]
+            if not planet_data.empty:
+                row = planet_data.iloc[0]
+                vedic = get_vedic_analysis(
+                    planet, 
+                    float(row["Pos in Zodiac"].split("°")[0]),
+                    row["Nakshatra"],
+                    row["Pada"]
+                )
+                
+                with st.expander(f"{planet} Analysis"):
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        st.write(f"**Position:** {row['Pos in Zodiac']}")
+                        st.write(f"**Nakshatra:** {row['Nakshatra']} (Pada {row['Pada']})")
+                        st.write(f"**Motion:** {'Retrograde' if row['Motion'] == 'R' else 'Direct'}")
+                    with col2:
+                        st.write(f"**Strength:** {vedic['strength']:.1f}/1.0")
+                        st.write(f"**Sentiment:** {vedic['sentiment']}")
+                        st.write(f"**Zodiac Sign:** {row['Zodiac']}")
 
 if __name__ == "__main__":
     main()
