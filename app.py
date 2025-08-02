@@ -2,38 +2,75 @@ import streamlit as st
 from datetime import datetime, timedelta
 import pandas as pd
 
-# Planetary data database (would normally be in a separate file)
+# Extended Planetary Data for August 2025
 PLANETARY_DATA = {
-    "2025-08-02": {
+    "2025-07-31": {
         "retrograde": ["Mercury"],
         "transits": [
-            {"planet": "Sun", "sign": "Capricorn", "nakshatra": "Uttara Ashadha", "sectors": ["Energy", "Government"]},
-            {"planet": "Jupiter", "sign": "Pisces", "nakshatra": "Revati", "sectors": ["Pharma", "Banking"]}
+            {"planet": "Sun", "sign": "Cancer", "nakshatra": "Ashlesha", "sectors": ["Oil", "Shipping"]},
+            {"planet": "Mars", "sign": "Taurus", "nakshatra": "Rohini", "sectors": ["Metals", "Agriculture"]}
         ],
         "aspects": [
-            {"time": "9:30-11:30 AM", "aspect": "Moon trine Jupiter", "quality": "Favorable"},
-            {"time": "All day", "aspect": "Venus square Saturn", "quality": "Avoid"}
+            {"time": "11:00 AM-1:00 PM", "aspect": "Moon sextile Venus", "quality": "Good"},
+            {"time": "After 3:00 PM", "aspect": "Mars square Saturn", "quality": "Avoid"}
         ]
     },
-    "2025-08-06": {
+    "2025-08-01": {
         "retrograde": ["Mercury"],
         "transits": [
-            {"planet": "Sun", "sign": "Capricorn", "nakshatra": "Uttara Ashadha", "sectors": ["Energy", "Government"]},
-            {"planet": "Mars", "sign": "Gemini", "nakshatra": "Ardra", "sectors": ["Metals", "Technology"]}
+            {"planet": "Sun", "sign": "Leo", "nakshatra": "Magha", "sectors": ["Entertainment", "Gold"]},
+            {"planet": "Venus", "sign": "Gemini", "nakshatra": "Ardra", "sectors": ["Technology", "Communication"]}
         ],
         "aspects": [
-            {"time": "Afternoon", "aspect": "Sun conjunct Jupiter", "quality": "Excellent"},
-            {"time": "Morning", "aspect": "Moon opposite Mars", "quality": "Volatile"}
+            {"time": "Market Open", "aspect": "Sun trine Jupiter", "quality": "Excellent"},
+            {"time": "Afternoon", "aspect": "Mercury opposite Pluto", "quality": "Volatile"}
+        ]
+    },
+    "2025-08-03": {
+        "retrograde": ["Mercury", "Pluto"],
+        "transits": [
+            {"planet": "Moon", "sign": "Virgo", "nakshatra": "Uttara Phalguni", "sectors": ["Healthcare", "Service"]},
+            {"planet": "Jupiter", "sign": "Pisces", "nakshatra": "Revati", "sectors": ["Pharma", "Shipping"]}
+        ],
+        "aspects": [
+            {"time": "9:30-11:30 AM", "aspect": "Venus sextile Mars", "quality": "Favorable"},
+            {"time": "2:00-4:00 PM", "aspect": "Sun square Moon", "quality": "Caution"}
+        ]
+    },
+    "2025-08-04": {
+        "retrograde": ["Mercury"],
+        "transits": [
+            {"planet": "Sun", "sign": "Leo", "nakshatra": "Purva Phalguni", "sectors": ["Luxury", "Entertainment"]},
+            {"planet": "Saturn", "sign": "Aquarius", "nakshatra": "Purva Bhadrapada", "sectors": ["Infrastructure", "Real Estate"]}
+        ],
+        "aspects": [
+            {"time": "Morning", "aspect": "Jupiter trine Saturn", "quality": "Stable"},
+            {"time": "Market Close", "aspect": "Mercury square Mars", "quality": "Avoid"}
+        ]
+    },
+    "2025-08-31": {
+        "retrograde": [],
+        "transits": [
+            {"planet": "Sun", "sign": "Leo", "nakshatra": "Purva Phalguni", "sectors": ["Luxury", "Entertainment"]},
+            {"planet": "Venus", "sign": "Cancer", "nakshatra": "Pushya", "sectors": ["Banking", "Real Estate"]}
+        ],
+        "aspects": [
+            {"time": "All day", "aspect": "Venus conjunct Sun", "quality": "Excellent"},
+            {"time": "Afternoon", "aspect": "Moon sextile Jupiter", "quality": "Good"}
         ]
     }
 }
 
-# Stock database
+# Extended Stock Database
 STOCKS_DB = [
-    {"symbol": "RELIANCE", "sector": "Energy", "nakshatra": "Uttara Ashadha"},
+    {"symbol": "RELIANCE", "sector": "Oil", "nakshatra": "Ashlesha"},
     {"symbol": "DIVISLAB", "sector": "Pharma", "nakshatra": "Revati"},
     {"symbol": "TATASTEEL", "sector": "Metals", "nakshatra": "Rohini"},
-    {"symbol": "INFY", "sector": "Technology", "nakshatra": "Hasta"}
+    {"symbol": "INFY", "sector": "Technology", "nakshatra": "Ardra"},
+    {"symbol": "SUNPHARMA", "sector": "Pharma", "nakshatra": "Ashwini"},
+    {"symbol": "HDFCBANK", "sector": "Banking", "nakshatra": "Pushya"},
+    {"symbol": "DLF", "sector": "Real Estate", "nakshatra": "Purva Bhadrapada"},
+    {"symbol": "TATAMOTORS", "sector": "Automobiles", "nakshatra": "Mrigashira"}
 ]
 
 def get_recommendations(date):
@@ -61,7 +98,11 @@ def get_recommendations(date):
                 "Symbol": stock["symbol"],
                 "Sector": stock["sector"],
                 "Signal": "BUY",
-                "Strength": strength
+                "Strength": strength,
+                "Planet": next(
+                    (t["planet"] for t in data["transits"] 
+                    if stock["sector"] in t["sectors"]),
+                "Nakshatra": stock["nakshatra"]
             })
     
     return data.get("retrograde", []), recommendations, data.get("aspects", [])
@@ -70,10 +111,10 @@ def main():
     st.set_page_config(page_title="Astro Stock Advisor", layout="wide")
     st.title("✨ Astrological Stock Advisor")
     
-    # Date input
+    # Date input with default to current date
     selected_date = st.date_input(
         "Select Date for Analysis",
-        min_value=datetime(2025, 8, 1),
+        min_value=datetime(2025, 7, 1),
         max_value=datetime(2025, 8, 31),
         value=datetime(2025, 8, 2)
     )
@@ -81,24 +122,31 @@ def main():
     # Get data for selected date
     retrograde, recommendations, aspects = get_recommendations(selected_date)
     
-    if retrograde is None:
-        st.warning("No planetary data available for selected date")
-        return
-    
     # Display warnings
     with st.expander("⚠️ Planetary Warnings", expanded=True):
-        for planet in retrograde:
-            st.error(f"{planet} Retrograde: Exercise caution in new investments")
+        if retrograde:
+            for planet in retrograde:
+                st.error(f"{planet} Retrograde: Exercise caution in new investments")
+        else:
+            st.success("No retrograde planets - Generally favorable day")
     
     # Display recommendations
     st.subheader("💎 Recommended Stocks")
     if recommendations:
         rec_df = pd.DataFrame(recommendations)
+        
+        # Color formatting
+        def color_strength(val):
+            color = 'green' if val == 'Strong' else 'orange'
+            return f'color: {color}'
+        
         st.dataframe(
-            rec_df.style.applymap(
-                lambda x: "color: green" if x == "BUY" else "",
-                subset=["Signal"]
-            ),
+            rec_df.style.applymap(color_strength, subset=['Strength']),
+            column_config={
+                "Symbol": st.column_config.TextColumn(width="small"),
+                "Planet": st.column_config.TextColumn("Dominant Planet"),
+                "Nakshatra": st.column_config.TextColumn("Lunar Mansion")
+            },
             hide_index=True,
             use_container_width=True
         )
@@ -106,15 +154,20 @@ def main():
         st.info("No strong recommendations for this date")
     
     # Display trading times
-    st.subheader("⏰ Favorable Trading Times")
+    st.subheader("⏰ Planetary Aspects & Trading Times")
     if aspects:
         aspect_df = pd.DataFrame(aspects)
-        # Add emoji based on quality
+        
+        # Quality indicators
+        def quality_icon(quality):
+            if "Excellent" in quality: return "⭐"
+            if "Good" in quality: return "✔️" 
+            if "Avoid" in quality: return "❌"
+            return ""
+        
         aspect_df["Quality"] = aspect_df["quality"].apply(
-            lambda x: "✔️ " + x if x == "Favorable" 
-            else "❌ " + x if x == "Avoid" 
-            else "⭐ " + x
-        )
+            lambda x: f"{quality_icon(x)} {x}")
+        
         st.dataframe(
             aspect_df[["time", "Quality", "aspect"]].rename(
                 columns={"time": "Time", "aspect": "Planetary Aspect"}
@@ -122,10 +175,18 @@ def main():
             hide_index=True,
             use_container_width=True
         )
+        
+        # Additional interpretation
+        with st.expander("📜 Interpretation Guide"):
+            st.markdown("""
+            - ⭐ Excellent: Highly favorable for investments
+            - ✔️ Good: Generally positive conditions  
+            - ❌ Avoid: Challenging aspects, better to wait
+            """)
     else:
-        st.info("No significant aspects for this date")
+        st.info("No significant aspects recorded for this date")
     
-    st.caption(f"Last Updated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    st.caption(f"Analysis for {selected_date.strftime('%B %d, %Y')} | Updated: {datetime.now().strftime('%Y-%m-%d %H:%M')}")
 
 if __name__ == "__main__":
     main()
