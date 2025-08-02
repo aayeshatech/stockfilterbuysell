@@ -266,12 +266,13 @@ st.markdown("""
     }
     .transit-table th, .transit-table td {
         border: 1px solid #ddd;
-        padding: 8px;
+        padding: 12px;
         text-align: left;
     }
     .transit-table th {
         background-color: #f2f2f2;
         font-weight: bold;
+        color: #333;
     }
     .transit-table tr:nth-child(even) {
         background-color: #f9f9f9;
@@ -286,6 +287,19 @@ st.markdown("""
     .bearish-text {
         color: #d62728;
         font-weight: bold;
+    }
+    .aspect-highlight {
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-weight: 500;
+    }
+    .aspect-bullish-highlight {
+        background-color: #d4edda;
+        color: #155724;
+    }
+    .aspect-bearish-highlight {
+        background-color: #f8d7da;
+        color: #721c24;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -587,171 +601,136 @@ def calculate_planetary_aspects(positions):
     
     return aspects
 
-# Generate trading signals
-def generate_trading_signals(aspects, symbol, sector, current_time):
-    """Generate bullish/bearish signals based on planetary aspects"""
-    signals = []
-    
-    # Define aspect interpretations
-    bullish_aspects = [
-        ('Jupiter', 'Venus', 'any'),
-        ('Jupiter', 'Sun', 'any'),
-        ('Venus', 'Sun', 'any'),
-        ('Jupiter', 'Moon', 'Trine'),
-        ('Venus', 'Moon', 'Trine'),
-        ('Sun', 'Moon', 'Trine')
-    ]
-    
-    bearish_aspects = [
-        ('Saturn', 'Mars', 'any'),
-        ('Saturn', 'Sun', 'any'),
-        ('Mars', 'Saturn', 'any'),
-        ('Saturn', 'Moon', 'Square'),
-        ('Mars', 'Moon', 'Square'),
-        ('Rahu', 'Sun', 'any'),
-        ('Rahu', 'Moon', 'any'),
-        ('Ketu', 'Sun', 'any'),
-        ('Ketu', 'Moon', 'any')
-    ]
-    
-    # Sector-specific rules
-    sector_rules = {
-        'Banking': {
-            'bullish': [('Jupiter', 'any', 'Trine'), ('Venus', 'any', 'Trine')],
-            'bearish': [('Saturn', 'any', 'Square'), ('Mars', 'any', 'Square')]
+# Define special symbol rules for bullish/bearish signals
+def get_special_symbol_rules():
+    """Get specific rules for special symbols (Nifty, BankNifty, Gold)"""
+    return {
+        'Nifty': {
+            'bullish': [
+                ('Jupiter', 'Venus', 'Trine'),
+                ('Jupiter', 'Sun', 'Trine'),
+                ('Venus', 'Sun', 'Trine'),
+                ('Jupiter', 'Moon', 'Trine'),
+                ('Venus', 'Moon', 'Trine'),
+                ('Sun', 'Moon', 'Trine')
+            ],
+            'bearish': [
+                ('Saturn', 'Mars', 'Square'),
+                ('Saturn', 'Sun', 'Opposition'),
+                ('Mars', 'Saturn', 'Square'),
+                ('Saturn', 'Moon', 'Square'),
+                ('Mars', 'Moon', 'Square'),
+                ('Rahu', 'Sun', 'Conjunction'),
+                ('Rahu', 'Moon', 'Conjunction'),
+                ('Ketu', 'Sun', 'Conjunction'),
+                ('Ketu', 'Moon', 'Conjunction')
+            ]
         },
-        'IT': {
-            'bullish': [('Mercury', 'any', 'Trine'), ('Jupiter', 'Mercury', 'any')],
-            'bearish': [('Saturn', 'Mercury', 'any'), ('Rahu', 'Mercury', 'any')]
+        'BankNifty': {
+            'bullish': [
+                ('Jupiter', 'Venus', 'Trine'),
+                ('Jupiter', 'Mercury', 'Trine'),
+                ('Venus', 'Mercury', 'Trine'),
+                ('Jupiter', 'Moon', 'Trine'),
+                ('Venus', 'Moon', 'Trine'),
+                ('Mercury', 'Moon', 'Trine')
+            ],
+            'bearish': [
+                ('Saturn', 'Mars', 'Square'),
+                ('Saturn', 'Mercury', 'Opposition'),
+                ('Mars', 'Saturn', 'Square'),
+                ('Saturn', 'Moon', 'Square'),
+                ('Mars', 'Moon', 'Square'),
+                ('Rahu', 'Mercury', 'Conjunction'),
+                ('Rahu', 'Moon', 'Conjunction'),
+                ('Ketu', 'Mercury', 'Conjunction'),
+                ('Ketu', 'Moon', 'Conjunction')
+            ]
         },
-        'Energy': {
-            'bullish': [('Mars', 'any', 'Trine'), ('Sun', 'Mars', 'any')],
-            'bearish': [('Saturn', 'Mars', 'any'), ('Rahu', 'Mars', 'any')]
-        },
-        'Commodity': {
-            'bullish': [('Venus', 'any', 'Trine'), ('Jupiter', 'any', 'Trine')],
-            'bearish': [('Saturn', 'any', 'Square'), ('Mars', 'any', 'Square')]
-        },
-        'Financial': {
-            'bullish': [('Jupiter', 'any', 'Trine'), ('Venus', 'any', 'Trine')],
-            'bearish': [('Saturn', 'any', 'Square'), ('Rahu', 'any', 'Square')]
-        },
-        'Auto': {
-            'bullish': [('Mars', 'any', 'Trine'), ('Jupiter', 'any', 'Trine')],
-            'bearish': [('Saturn', 'any', 'Square'), ('Rahu', 'any', 'Square')]
-        },
-        'Pharma': {
-            'bullish': [('Jupiter', 'any', 'Trine'), ('Venus', 'any', 'Trine')],
-            'bearish': [('Saturn', 'any', 'Square'), ('Rahu', 'any', 'Square')]
-        },
-        'Metals': {
-            'bullish': [('Mars', 'any', 'Trine'), ('Jupiter', 'any', 'Trine')],
-            'bearish': [('Saturn', 'any', 'Square'), ('Rahu', 'any', 'Square')]
-        },
-        'Power': {
-            'bullish': [('Mars', 'any', 'Trine'), ('Jupiter', 'any', 'Trine')],
-            'bearish': [('Saturn', 'any', 'Square'), ('Rahu', 'any', 'Square')]
-        },
-        'Oil & Gas': {
-            'bullish': [('Mars', 'any', 'Trine'), ('Jupiter', 'any', 'Trine')],
-            'bearish': [('Saturn', 'any', 'Square'), ('Rahu', 'any', 'Square')]
-        },
-        'FMCG': {
-            'bullish': [('Venus', 'any', 'Trine'), ('Jupiter', 'any', 'Trine')],
-            'bearish': [('Saturn', 'any', 'Square'), ('Rahu', 'any', 'Square')]
-        },
-        'Paints': {
-            'bullish': [('Venus', 'any', 'Trine'), ('Jupiter', 'any', 'Trine')],
-            'bearish': [('Saturn', 'any', 'Square'), ('Rahu', 'any', 'Square')]
-        },
-        'Jewelry': {
-            'bullish': [('Venus', 'any', 'Trine'), ('Jupiter', 'any', 'Trine')],
-            'bearish': [('Saturn', 'any', 'Square'), ('Rahu', 'any', 'Square')]
-        },
-        'Infrastructure': {
-            'bullish': [('Mars', 'any', 'Trine'), ('Jupiter', 'any', 'Trine')],
-            'bearish': [('Saturn', 'any', 'Square'), ('Rahu', 'any', 'Square')]
-        },
-        'Mining': {
-            'bullish': [('Mars', 'any', 'Trine'), ('Jupiter', 'any', 'Trine')],
-            'bearish': [('Saturn', 'any', 'Square'), ('Rahu', 'any', 'Square')]
+        'Gold': {
+            'bullish': [
+                ('Jupiter', 'Venus', 'Trine'),
+                ('Venus', 'Sun', 'Trine'),
+                ('Venus', 'Moon', 'Trine'),
+                ('Jupiter', 'Moon', 'Trine'),
+                ('Sun', 'Moon', 'Trine'),
+                ('Venus', 'Jupiter', 'Sextile')
+            ],
+            'bearish': [
+                ('Saturn', 'Venus', 'Square'),
+                ('Saturn', 'Sun', 'Opposition'),
+                ('Mars', 'Venus', 'Opposition'),
+                ('Saturn', 'Moon', 'Square'),
+                ('Mars', 'Moon', 'Square'),
+                ('Rahu', 'Venus', 'Conjunction'),
+                ('Rahu', 'Moon', 'Conjunction'),
+                ('Ketu', 'Venus', 'Conjunction'),
+                ('Ketu', 'Moon', 'Conjunction')
+            ]
         }
     }
+
+# Generate trading signals for special symbols
+def generate_special_symbol_signals(aspects, symbol, current_time):
+    """Generate bullish/bearish signals for special symbols based on planetary aspects"""
+    # Get rules for this symbol
+    rules = get_special_symbol_rules()
+    symbol_rules = rules.get(symbol, {'bullish': [], 'bearish': []})
     
-    # Check general aspects
+    bullish_signals = []
+    bearish_signals = []
+    
+    # Check each aspect against the rules
     for aspect in aspects:
         p1, p2, aspect_type = aspect['planet1'], aspect['planet2'], aspect['aspect']
         strength = aspect['strength']
         
         # Check bullish signals
-        for bp1, bp2, btype in bullish_aspects:
+        for bp1, bp2, btype in symbol_rules['bullish']:
             if ((p1 == bp1 and p2 == bp2) or (p1 == bp2 and p2 == bp1)) and \
                (btype == 'any' or aspect_type == btype):
-                signals.append({
-                    'type': 'bullish',
+                bullish_signals.append({
+                    'planets': f"{p1}-{p2}",
+                    'aspect': aspect_type,
                     'strength': strength,
-                    'reason': f"{p1}-{p2} {aspect_type}",
-                    'time': current_time.strftime("%H:%M"),
-                    'detail': f"{p1} in {aspect_type} with {p2} (Strength: {strength:.2f})"
+                    'time': current_time.strftime("%H:%M")
                 })
         
         # Check bearish signals
-        for sp1, sp2, stype in bearish_aspects:
+        for sp1, sp2, stype in symbol_rules['bearish']:
             if ((p1 == sp1 and p2 == sp2) or (p1 == sp2 and p2 == sp1)) and \
                (stype == 'any' or aspect_type == stype):
-                signals.append({
-                    'type': 'bearish',
+                bearish_signals.append({
+                    'planets': f"{p1}-{p2}",
+                    'aspect': aspect_type,
                     'strength': strength,
-                    'reason': f"{p1}-{p2} {aspect_type}",
-                    'time': current_time.strftime("%H:%M"),
-                    'detail': f"{p1} in {aspect_type} with {p2} (Strength: {strength:.2f})"
+                    'time': current_time.strftime("%H:%M")
                 })
     
-    # Check sector-specific rules
-    if sector in sector_rules:
-        for aspect in aspects:
-            p1, p2, aspect_type = aspect['planet1'], aspect['planet2'], aspect['aspect']
-            strength = aspect['strength']
-            
-            # Sector bullish
-            for bp1, btype, batype in sector_rules[sector]['bullish']:
-                if (p1 == bp1 or p2 == bp1) and (btype == 'any' or aspect_type == batype):
-                    signals.append({
-                        'type': 'bullish',
-                        'strength': strength * 1.2,  # Boost sector signals
-                        'reason': f"{sector}: {p1}-{p2} {aspect_type}",
-                        'time': current_time.strftime("%H:%M"),
-                        'detail': f"Sector {sector}: {p1} in {aspect_type} with {p2} (Strength: {strength*1.2:.2f})"
-                    })
-            
-            # Sector bearish
-            for sp1, stype, satype in sector_rules[sector]['bearish']:
-                if (p1 == sp1 or p2 == sp1) and (stype == 'any' or aspect_type == satype):
-                    signals.append({
-                        'type': 'bearish',
-                        'strength': strength * 1.2,  # Boost sector signals
-                        'reason': f"{sector}: {p1}-{p2} {aspect_type}",
-                        'time': current_time.strftime("%H:%M"),
-                        'detail': f"Sector {sector}: {p1} in {aspect_type} with {p2} (Strength: {strength*1.2:.2f})"
-                    })
+    # Calculate total strength
+    total_bullish = sum(s['strength'] for s in bullish_signals)
+    total_bearish = sum(s['strength'] for s in bearish_signals)
     
-    return signals
-
-# Format planetary position
-def format_planetary_position(longitude):
-    """Format planetary longitude to zodiac sign and degree"""
-    signs = ["Ari", "Tau", "Gem", "Can", "Leo", "Vir", 
-             "Lib", "Sco", "Sag", "Cap", "Aqu", "Pis"]
-    sign_num = int(longitude / 30)
-    sign = signs[sign_num]
-    degree = longitude % 30
-    minute = (degree - int(degree)) * 60
-    return f"{int(degree)}°{int(minute)}' {sign}"
-
-# Format recommendation badge
-def format_recommendation_badge(recommendation_class, recommendation):
-    """Format recommendation as HTML badge"""
-    return f"<span class='buy-sell-badge {recommendation_class}'>{recommendation}</span>"
+    # Determine signal and strongest aspect
+    if total_bullish > total_bearish:
+        signal = "Bullish"
+        strongest_aspect = max(bullish_signals, key=lambda x: x['strength']) if bullish_signals else None
+    else:
+        signal = "Bearish"
+        strongest_aspect = max(bearish_signals, key=lambda x: x['strength']) if bearish_signals else None
+    
+    # Format the strongest aspect string
+    aspect_str = ""
+    if strongest_aspect:
+        aspect_str = f"{strongest_aspect['planets']} {strongest_aspect['aspect']}"
+    
+    return {
+        'signal': signal,
+        'bullish_strength': round(total_bullish, 2),
+        'bearish_strength': round(total_bearish, 2),
+        'strongest_aspect': aspect_str,
+        'all_aspects': bullish_signals + bearish_signals
+    }
 
 # Generate special transit report for Nifty, BankNifty, and Gold
 def generate_special_transit_report(selected_date, watchlist, sectors, selected_time_slot=None):
@@ -784,39 +763,37 @@ def generate_special_transit_report(selected_date, watchlist, sectors, selected_
         # Generate signals for each special symbol
         for symbol in special_symbols:
             sector = sectors.get(symbol, 'Unknown')
-            signals = generate_trading_signals(aspects, symbol, sector, start_time)
-            
-            # Calculate overall signal
-            bullish_strength = sum(s['strength'] for s in signals if s['type'] == 'bullish')
-            bearish_strength = sum(s['strength'] for s in signals if s['type'] == 'bearish')
-            
-            # Determine signal
-            if bullish_strength > bearish_strength:
-                signal = "Bullish"
-                signal_class = "bullish-text"
-            else:
-                signal = "Bearish"
-                signal_class = "bearish-text"
-            
-            # Get the strongest aspect
-            strongest_aspect = ""
-            if signals:
-                strongest_signal = max(signals, key=lambda x: x['strength'])
-                strongest_aspect = strongest_signal['reason']
+            signal_data = generate_special_symbol_signals(aspects, symbol, start_time)
             
             # Add to report data
             report_data.append({
                 'Time Factor': f"{start_time_str} - {end_time_str}",
                 'Index Name': symbol,
-                'Bullish/Bearish': signal,
+                'Bullish/Bearish': signal_data['signal'],
                 'Time': start_time_str,
-                'Planetary Aspect': strongest_aspect,
-                'Signal Class': signal_class,
-                'Bullish Strength': round(bullish_strength, 2),
-                'Bearish Strength': round(bearish_strength, 2)
+                'Planetary Aspect': signal_data['strongest_aspect'],
+                'Bullish Strength': signal_data['bullish_strength'],
+                'Bearish Strength': signal_data['bearish_strength'],
+                'All Aspects': signal_data['all_aspects']
             })
     
     return report_data
+
+# Format planetary position
+def format_planetary_position(longitude):
+    """Format planetary longitude to zodiac sign and degree"""
+    signs = ["Ari", "Tau", "Gem", "Can", "Leo", "Vir", 
+             "Lib", "Sco", "Sag", "Cap", "Aqu", "Pis"]
+    sign_num = int(longitude / 30)
+    sign = signs[sign_num]
+    degree = longitude % 30
+    minute = (degree - int(degree)) * 60
+    return f"{int(degree)}°{int(minute)}' {sign}"
+
+# Format recommendation badge
+def format_recommendation_badge(recommendation_class, recommendation):
+    """Format recommendation as HTML badge"""
+    return f"<span class='buy-sell-badge {recommendation_class}'>{recommendation}</span>"
 
 # Main dashboard
 def main():
@@ -883,6 +860,12 @@ def main():
         start_time_str, end_time_str = selected_time_slot_option.split(" - ")
         selected_time_slot = (start_time_str, end_time_str)
     
+    # Symbol selector for detailed view
+    selected_symbol = st.sidebar.selectbox(
+        "Select Symbol for Detailed View",
+        options=["All", "Nifty", "BankNifty", "Gold"]
+    )
+    
     # Generate report if date is selected
     if st.session_state.report_generated:
         selected_date = st.session_state.selected_date
@@ -903,8 +886,14 @@ def main():
             
             # Display the transit report table
             if special_report_data:
+                # Filter by selected symbol if not "All"
+                if selected_symbol != "All":
+                    filtered_data = [d for d in special_report_data if d['Index Name'] == selected_symbol]
+                else:
+                    filtered_data = special_report_data
+                
                 # Create DataFrame
-                report_df = pd.DataFrame(special_report_data)
+                report_df = pd.DataFrame(filtered_data)
                 
                 # Display table with custom styling
                 st.markdown("""
@@ -922,13 +911,16 @@ def main():
                 """, unsafe_allow_html=True)
                 
                 for _, row in report_df.iterrows():
+                    signal_class = "bullish-text" if row['Bullish/Bearish'] == "Bullish" else "bearish-text"
+                    aspect_class = "aspect-bullish-highlight" if row['Bullish/Bearish'] == "Bullish" else "aspect-bearish-highlight"
+                    
                     st.markdown(f"""
                     <tr>
                         <td>{row['Time Factor']}</td>
                         <td><strong>{row['Index Name']}</strong></td>
-                        <td class="{row['Signal Class']}">{row['Bullish/Bearish']}</td>
+                        <td class="{signal_class}">{row['Bullish/Bearish']}</td>
                         <td>{row['Time']}</td>
-                        <td>{row['Planetary Aspect']}</td>
+                        <td><span class="{aspect_class}">{row['Planetary Aspect']}</span></td>
                     </tr>
                     """, unsafe_allow_html=True)
                 
@@ -942,6 +934,9 @@ def main():
                 
                 # Group by index name
                 for symbol in ['Nifty', 'BankNifty', 'Gold']:
+                    if selected_symbol != "All" and selected_symbol != symbol:
+                        continue
+                        
                     symbol_data = report_df[report_df['Index Name'] == symbol]
                     
                     if not symbol_data.empty:
@@ -1036,76 +1031,69 @@ def main():
             # Display detailed symbol analysis
             st.subheader("Detailed Symbol Analysis")
             
-            # Symbol selector
-            selected_symbol = st.selectbox(
-                "Select Symbol for Detailed Analysis",
-                options=['Nifty', 'BankNifty', 'Gold']
-            )
+            # Use the selected symbol from sidebar
+            if selected_symbol == "All":
+                analysis_symbol = "Nifty"  # Default to Nifty
+            else:
+                analysis_symbol = selected_symbol
             
-            if selected_symbol:
-                # Generate detailed report for the selected symbol
-                detailed_report = []
+            # Generate detailed report for the selected symbol
+            detailed_report = []
+            
+            for start_time_str, end_time_str in time_slots:
+                start_hour, start_minute = map(int, start_time_str.split(':'))
+                start_time = datetime.combine(selected_date, datetime.min.time()) + timedelta(hours=start_hour, minutes=start_minute)
                 
-                for start_time_str, end_time_str in time_slots:
-                    start_hour, start_minute = map(int, start_time_str.split(':'))
-                    start_time = datetime.combine(selected_date, datetime.min.time()) + timedelta(hours=start_hour, minutes=start_minute)
-                    
-                    # Calculate planetary positions and aspects
-                    positions = calculate_planetary_positions(start_time)
-                    aspects = calculate_planetary_aspects(positions)
-                    
-                    # Generate signals
-                    sector = sectors.get(selected_symbol, 'Unknown')
-                    signals = generate_trading_signals(aspects, selected_symbol, sector, start_time)
-                    
-                    # Calculate overall signal
-                    bullish_strength = sum(s['strength'] for s in signals if s['type'] == 'bullish')
-                    bearish_strength = sum(s['strength'] for s in signals if s['type'] == 'bearish')
-                    
-                    # Determine signal
-                    if bullish_strength > bearish_strength:
-                        signal = "Bullish"
-                        signal_class = "signal-bullish"
-                    else:
-                        signal = "Bearish"
-                        signal_class = "signal-bearish"
-                    
-                    detailed_report.append({
-                        'Time Slot': f"{start_time_str} - {end_time_str}",
-                        'Signal': signal,
-                        'Signal Class': signal_class,
-                        'Bullish Strength': round(bullish_strength, 2),
-                        'Bearish Strength': round(bearish_strength, 2),
-                        'Signals': signals
-                    })
+                # Calculate planetary positions and aspects
+                positions = calculate_planetary_positions(start_time)
+                aspects = calculate_planetary_aspects(positions)
                 
-                # Display detailed report
-                for slot in detailed_report:
-                    st.markdown(f"### {slot['Time Slot']}")
-                    
-                    col1, col2 = st.columns(2)
-                    
-                    with col1:
-                        st.markdown(f"**Signal:** <span class='{slot['Signal Class']}'>{slot['Signal']}</span>", unsafe_allow_html=True)
-                        st.markdown(f"**Bullish Strength:** {slot['Bullish Strength']}")
-                        st.markdown(f"**Bearish Strength:** {slot['Bearish Strength']}")
-                    
-                    with col2:
-                        st.markdown("### Signal Strength")
-                        st.progress(slot['Bullish Strength'] / max(slot['Bullish Strength'] + slot['Bearish Strength'], 0.001))
-                        st.markdown(f"<span style='color: green'>Bullish: {slot['Bullish Strength']:.2f}</span>", unsafe_allow_html=True)
-                        st.progress(slot['Bearish Strength'] / max(slot['Bullish Strength'] + slot['Bearish Strength'], 0.001))
-                        st.markdown(f"<span style='color: red'>Bearish: {slot['Bearish Strength']:.2f}</span>", unsafe_allow_html=True)
-                    
-                    # Display transit details
-                    st.markdown("### Active Transits")
-                    if slot['Signals']:
-                        for signal in slot['Signals']:
-                            st.markdown(f"<div class='transit-detail'>🔮 {signal['detail']}</div>", unsafe_allow_html=True)
-                    else:
-                        st.info("No significant transits affecting this symbol at this time")
-                    
-                    st.markdown("---")
+                # Generate signals
+                signal_data = generate_special_symbol_signals(aspects, analysis_symbol, start_time)
+                
+                detailed_report.append({
+                    'Time Slot': f"{start_time_str} - {end_time_str}",
+                    'Signal': signal_data['signal'],
+                    'Bullish Strength': signal_data['bullish_strength'],
+                    'Bearish Strength': signal_data['bearish_strength'],
+                    'Strongest Aspect': signal_data['strongest_aspect'],
+                    'All Aspects': signal_data['all_aspects']
+                })
+            
+            # Display detailed report
+            for slot in detailed_report:
+                st.markdown(f"### {slot['Time Slot']}")
+                
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    signal_class = "signal-bullish" if slot['Signal'] == "Bullish" else "signal-bearish"
+                    st.markdown(f"**Signal:** <span class='{signal_class}'>{slot['Signal']}</span>", unsafe_allow_html=True)
+                    st.markdown(f"**Bullish Strength:** {slot['Bullish Strength']}")
+                    st.markdown(f"**Bearish Strength:** {slot['Bearish Strength']}")
+                    st.markdown(f"**Strongest Aspect:** {slot['Strongest Aspect']}")
+                
+                with col2:
+                    st.markdown("### Signal Strength")
+                    st.progress(slot['Bullish Strength'] / max(slot['Bullish Strength'] + slot['Bearish Strength'], 0.001))
+                    st.markdown(f"<span style='color: green'>Bullish: {slot['Bullish Strength']:.2f}</span>", unsafe_allow_html=True)
+                    st.progress(slot['Bearish Strength'] / max(slot['Bullish Strength'] + slot['Bearish Strength'], 0.001))
+                    st.markdown(f"<span style='color: red'>Bearish: {slot['Bearish Strength']:.2f}</span>", unsafe_allow_html=True)
+                
+                # Display all transit details
+                st.markdown("### All Active Transits")
+                if slot['All Aspects']:
+                    for aspect in slot['All Aspects']:
+                        aspect_class = "aspect-bullish" if slot['Signal'] == "Bullish" else "aspect-bearish"
+                        st.markdown(f"""
+                        <div class="{aspect_class}">
+                            🔮 {aspect['planets']} {aspect['aspect']} (Strength: {aspect['strength']:.2f}) at {aspect['time']}
+                        </div>
+                        """, unsafe_allow_html=True)
+                else:
+                    st.info("No significant transits affecting this symbol at this time")
+                
+                st.markdown("---")
     else:
         # Show instructions when no report is generated
         st.info("👆 Please select a date and click 'Generate Daily Report' to view the astrological analysis")
