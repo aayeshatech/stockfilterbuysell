@@ -1,55 +1,86 @@
-"""Astro-Trading Dashboard (Simplified Version)"""
-import streamlit as st
 import pandas as pd
+from datetime import datetime, timedelta
 
-def get_sample_transit_data():
-    """Generate sample planetary transit data"""
-    return pd.DataFrame({
-        "Planet": ["Sun", "Moon", "Mars", "Mercury", "Jupiter", "Venus", "Saturn"],
-        "Time": ["00:00:00"]*7,
-        "Motion": ["Direct", "Direct", "Direct", "Retrograde", "Direct", "Direct", "Direct"],
-        "Zodiac": ["Capricorn", "Gemini", "Gemini", "Sagittarius", "Pisces", "Capricorn", "Aquarius"],
-        "Degree": [280, 60, 75, 240, 350, 290, 320],
-        "Nakshatra": ["Uttara Ashadha", "Ardra", "Punarvasu", "Purva Ashadha", "Revati", "Uttara Ashadha", "Purva Bhadrapada"],
-        "Pada": [4, 1, 1, 3, 4, 4, 2]
-    })
+# Sample planetary data (from your image)
+current_transits = {
+    "retrograde": [{"planet": "Mercury", "sign": "Sagittarius", "nakshatra": "Purva Ashadha", "pada": 3}],
+    "direct": [
+        {"planet": "Sun", "sign": "Capricorn", "nakshatra": "Uttara Ashadha", "pada": 4},
+        {"planet": "Moon", "sign": "Gemini", "nakshatra": "Ardra", "pada": 1},
+        {"planet": "Mars", "sign": "Gemini", "nakshatra": "Punarvasu", "pada": 1},
+        {"planet": "Jupiter", "sign": "Pisces", "nakshatra": "Revati", "pada": 4},
+        {"planet": "Venus", "sign": "Capricorn", "nakshatra": "Uttara Ashadha", "pada": 4},
+        {"planet": "Saturn", "sign": "Aquarius", "nakshatra": "Purva Bhadrapada", "pada": 2}
+    ]
+}
 
-def display_transits(transits):
-    """Display transit data with styling"""
-    st.subheader("Current Planetary Positions")
-    
-    # Create columns for better layout
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.markdown("### Retrograde Planets")
-        retrograde = transits[transits["Motion"] == "Retrograde"]
-        if not retrograde.empty:
-            for _, planet in retrograde.iterrows():
-                st.warning(f"🔴 {planet['Planet']} in {planet['Zodiac']} ({planet['Nakshatra']} Pada {planet['Pada']})")
-        else:
-            st.info("No planets in retrograde")
-    
-    with col2:
-        st.markdown("### Direct Motion Planets")
-        direct = transits[transits["Motion"] == "Direct"]
-        for _, planet in direct.iterrows():
-            st.success(f"🔵 {planet['Planet']} in {planet['Zodiac']} ({planet['Nakshatra']} Pada {planet['Pada']})")
-    
-    st.subheader("Detailed Transit Data")
-    st.dataframe(transits)
+# Sector mappings based on Vedic astrology
+planet_sectors = {
+    "Sun": ["Infrastructure", "Energy", "Government"],
+    "Moon": ["Liquids", "Shipping", "Retail"],
+    "Mars": ["Metals", "Defense", "Technology"],
+    "Mercury": ["Communication", "IT", "Logistics"],
+    "Jupiter": ["Pharma", "Banking", "Education"],
+    "Venus": ["Luxury", "Automobiles", "Entertainment"],
+    "Saturn": ["Utilities", "Real Estate", "Heavy Industries"]
+}
 
-def main():
-    st.set_page_config(
-        page_title="Astro-Trading Dashboard",
-        layout="wide",
-        page_icon="♋"
-    )
-    
-    st.title("🌌 Planetary Transit Analysis")
-    
-    transits = get_sample_transit_data()
-    display_transits(transits)
+# Sample stock universe
+stocks_database = [
+    {"symbol": "TATASTEEL", "sector": "Metals", "nakshatra": "Rohini"},
+    {"symbol": "RELIANCE", "sector": "Energy", "nakshatra": "Uttara Ashadha"},
+    {"symbol": "INFY", "sector": "IT", "nakshatra": "Hasta"},
+    {"symbol": "DIVISLAB", "sector": "Pharma", "nakshatra": "Revati"},
+    {"symbol": "TATAPOWER", "sector": "Utilities", "nakshatra": "Purva Bhadrapada"}
+]
 
-if __name__ == "__main__":
-    main()
+def generate_watchlist(transits):
+    watchlist = []
+    
+    # Check retrograde first (generally avoid)
+    for planet in transits["retrograde"]:
+        if planet["planet"] == "Mercury":
+            print(f"⚠️ Mercury Retrograde Alert: Avoid new investments until {datetime.now() + timedelta(days=14)}")
+    
+    # Analyze direct planets
+    favorable_sectors = set()
+    for planet in transits["direct"]:
+        favorable_sectors.update(planet_sectors.get(planet["planet"], []))
+        
+        # Special logic for Jupiter in Revati (strong buy signal)
+        if planet["planet"] == "Jupiter" and planet["nakshatra"] == "Revati":
+            favorable_sectors.add("Pharma")
+            favorable_sectors.add("Shipping")
+    
+    # Find matching stocks
+    for stock in stocks_database:
+        if stock["sector"] in favorable_sectors:
+            signal = "BUY"  # Basic logic - refine with more rules
+            strength = "Strong" if any(
+                p["nakshatra"] == stock["nakshatra"] 
+                for p in transits["direct"]
+            ) else "Moderate"
+            
+            watchlist.append({
+                "Stock": stock["symbol"],
+                "Sector": stock["sector"],
+                "Signal": signal,
+                "Strength": strength,
+                "Planetary Influence": [
+                    p["planet"] for p in transits["direct"] 
+                    if stock["sector"] in planet_sectors.get(p["planet"], [])
+                ]
+            })
+    
+    return pd.DataFrame(watchlist)
+
+# Generate and display watchlist
+watchlist_df = generate_watchlist(current_transits)
+print("\n🌟 Astro Stock Watchlist (Next 7 Days)\n")
+print(watchlist_df.to_string(index=False))
+
+# Add trading calendar (simplified)
+print("\n📅 Favorable Trading Times:")
+print(f"{datetime.now().strftime('%b %d')}: Moon trine Jupiter (Good for buying)")
+print(f"{(datetime.now() + timedelta(days=3)).strftime('%b %d')}: Venus enters Capricorn (Stable investments)")
+print(f"{(datetime.now() + timedelta(days=6)).strftime('%b %d')}: Mercury square Mars (Avoid trading)")
