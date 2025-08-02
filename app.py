@@ -1,86 +1,102 @@
 """
-Ultra-Lightweight Astro Stock Advisor
-- No external dependencies (works with plain Python)
-- Instant execution
-- Clear text-based output
-- Includes retrograde warnings and trading times
+Astro Stock Advisor - Streamlit App
+Minimal dependencies version
 """
 
+import streamlit as st
 from datetime import datetime, timedelta
 
-class AstroStockAdvisor:
+# Configure page
+st.set_page_config(
+    page_title="Astro Stock Advisor",
+    page_icon="✨",
+    layout="wide"
+)
+
+class AstroAdvisor:
     def __init__(self):
-        # Current planetary positions (simplified)
-        self.current_transits = {
+        self.transits = {
             'retrograde': [
                 {'planet': 'Mercury', 'until': '2025-08-16', 'effect': 'Avoid new investments'}
             ],
             'direct': [
                 {'planet': 'Sun', 'sign': 'Capricorn', 'sectors': ['Energy', 'Government'], 'nakshatra': 'Uttara Ashadha'},
-                {'planet': 'Jupiter', 'sign': 'Pisces', 'sectors': ['Pharma', 'Banking'], 'nakshatra': 'Revati'},
-                {'planet': 'Mars', 'sign': 'Gemini', 'sectors': ['Metals', 'Technology'], 'nakshatra': 'Ardra'}
+                {'planet': 'Jupiter', 'sign': 'Pisces', 'sectors': ['Pharma', 'Banking'], 'nakshatra': 'Revati'}
             ]
         }
-        
-        # Stock database (symbol, sector, nakshatra)
         self.stocks = [
             ('RELIANCE', 'Energy', 'Uttara Ashadha'),
             ('DIVISLAB', 'Pharma', 'Revati'),
-            ('TATASTEEL', 'Metals', 'Rohini'),
-            ('INFY', 'Technology', 'Hasta'),
-            ('TATAPOWER', 'Utilities', 'Purva Bhadrapada')
+            ('TATASTEEL', 'Metals', 'Rohini')
         ]
 
-    def get_watchlist(self):
-        """Generate and display the watchlist"""
-        print("\n" + "="*60)
-        print("🌟 ASTROLOGICAL STOCK WATCHLIST".center(60))
-        print("="*60 + "\n")
+    def display_watchlist(self):
+        """Main display function"""
+        st.title("✨ Astrological Stock Watchlist")
+        st.divider()
         
-        # Show retrograde warnings
+        # Show warnings
         self._show_warnings()
         
-        # Generate and show recommendations
+        # Show recommendations
         self._show_recommendations()
         
-        # Show trading calendar
+        # Show trading times
         self._show_trading_times()
         
-        print(f"\nLast Updated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        st.caption(f"Last Updated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 
     def _show_warnings(self):
         """Display retrograde warnings"""
-        print("⚠️ PLANETARY WARNINGS:")
-        for planet in self.current_transits['retrograde']:
-            print(f"- {planet['planet']} Retrograde: {planet['effect']} until {planet['until']}")
-        print()
+        with st.container(border=True):
+            st.subheader("⚠️ Planetary Warnings")
+            for planet in self.transits['retrograde']:
+                st.warning(
+                    f"{planet['planet']} Retrograde: {planet['effect']} until {planet['until']}",
+                    icon="⚠️"
+                )
 
     def _show_recommendations(self):
         """Display stock recommendations"""
-        print("💎 RECOMMENDED STOCKS:")
-        print("-"*60)
-        print("{:<10} {:<15} {:<10} {:<15} {:<10}".format(
-            'Symbol', 'Sector', 'Signal', 'Strength', 'Alignment'))
-        print("-"*60)
-        
-        for symbol, sector, nakshatra in self.stocks:
-            for planet in self.current_transits['direct']:
-                if sector in planet['sectors']:
-                    strength = "STRONG" if nakshatra == planet['nakshatra'] else "moderate"
-                    print("{:<10} {:<15} {:<10} {:<15} {:<10}".format(
-                        symbol, sector, 'BUY', strength, 
-                        f"{planet['planet']} in {planet['nakshatra']}"))
-                    break
+        with st.container(border=True):
+            st.subheader("💎 Recommended Stocks")
+            
+            # Create columns for better layout
+            cols = st.columns([1, 1, 1, 1])
+            headers = ["Symbol", "Sector", "Signal", "Strength"]
+            for col, header in zip(cols, headers):
+                col.write(f"**{header}**")
+            
+            for symbol, sector, nakshatra in self.stocks:
+                for planet in self.transits['direct']:
+                    if sector in planet['sectors']:
+                        strength = "💎 Strong" if nakshatra == planet['nakshatra'] else "🔹 Moderate"
+                        cols = st.columns([1, 1, 1, 1])
+                        cols[0].code(symbol)
+                        cols[1].write(sector)
+                        cols[2].success("BUY")
+                        cols[3].write(strength)
+                        break
 
     def _show_trading_times(self):
         """Display favorable trading times"""
-        print("\n⏰ FAVORABLE TRADING TIMES:")
-        today = datetime.now()
-        print(f"- {today.strftime('%b %d')} 9:30-11:30 AM : Moon trine Jupiter (Good for buying)")
-        print(f"- {(today + timedelta(days=2)).strftime('%b %d')} : Venus square Saturn (Avoid trading)")
-        print(f"- {(today + timedelta(days=4)).strftime('%b %d')} : Sun conjunct Jupiter (Excellent for investments)")
+        with st.container(border=True):
+            st.subheader("⏰ Favorable Trading Times")
+            today = datetime.now()
+            
+            st.markdown("""
+            | Date       | Time         | Quality       | Reason                     |
+            |------------|--------------|---------------|----------------------------|
+            | {date1} | 9:30-11:30 AM | ✅ Favorable  | Moon trine Jupiter        |
+            | {date2} | All day       | ❌ Avoid      | Venus square Saturn       |
+            | {date3} | Afternoon     | ⭐ Excellent  | Sun conjunct Jupiter      |
+            """.format(
+                date1=today.strftime('%b %d'),
+                date2=(today + timedelta(days=2)).strftime('%b %d'),
+                date3=(today + timedelta(days=4)).strftime('%b %d')
+            ))
 
-# Run the advisor
+# Run the app
 if __name__ == "__main__":
-    advisor = AstroStockAdvisor()
-    advisor.get_watchlist()
+    advisor = AstroAdvisor()
+    advisor.display_watchlist()
