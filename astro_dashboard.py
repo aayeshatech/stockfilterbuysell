@@ -1,1 +1,1 @@
-pip install streamlit pandas plotly
+streamlit run astro_dashboard.py
