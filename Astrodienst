@@ -1,0 +1,8 @@
+# Replace this line:
+swe.set_ephe_path(r"C:\Users\a\Downloads\swisseph-master (1)\swisseph-master\ephe")
+
+# With a relative path:
+import os
+current_dir = os.path.dirname(os.path.abspath(__file__))
+ephe_path = os.path.join(current_dir, "ephe")
+swe.set_ephe_path(ephe_path)
