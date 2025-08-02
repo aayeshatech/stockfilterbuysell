@@ -1,8 +1,8 @@
 """
-Astro Stock Watchlist Generator
-- No external dependencies except pandas
-- Handles retrograde/direct planet analysis
-- Includes trading timing suggestions
+Astro Stock Watchlist Generator (Lightweight Version)
+- No external dependencies except pandas (which comes with Anaconda)
+- Simplified output for better performance
+- Built-in error handling
 """
 
 import pandas as pd
@@ -10,113 +10,105 @@ from datetime import datetime, timedelta
 
 class AstroStockAdvisor:
     def __init__(self):
+        # Planetary sector mappings
         self.planet_sectors = {
-            "Sun": ["Infrastructure", "Energy", "Government"],
-            "Moon": ["Liquids", "Shipping", "Retail"],
-            "Mars": ["Metals", "Defense", "Technology"],
-            "Mercury": ["Communication", "IT", "Logistics"],
-            "Jupiter": ["Pharma", "Banking", "Education"],
-            "Venus": ["Luxury", "Automobiles", "Entertainment"],
-            "Saturn": ["Utilities", "Real Estate", "Heavy Industries"]
+            "Sun": ["Energy", "Government"],
+            "Moon": ["Shipping", "Retail"],
+            "Mars": ["Metals", "Technology"],
+            "Jupiter": ["Pharma", "Banking"],
+            "Venus": ["Luxury", "Automobiles"],
+            "Saturn": ["Utilities", "Real Estate"]
         }
         
-        self.stocks_database = [
-            {"symbol": "TATASTEEL", "sector": "Metals", "nakshatra": "Rohini"},
+        # Sample stock database (replace with your actual data)
+        self.stocks_db = [
             {"symbol": "RELIANCE", "sector": "Energy", "nakshatra": "Uttara Ashadha"},
-            {"symbol": "INFY", "sector": "IT", "nakshatra": "Hasta"},
             {"symbol": "DIVISLAB", "sector": "Pharma", "nakshatra": "Revati"},
-            {"symbol": "TATAPOWER", "sector": "Utilities", "nakshatra": "Purva Bhadrapada"}
+            {"symbol": "TATASTEEL", "sector": "Metals", "nakshatra": "Rohini"},
+            {"symbol": "INFY", "sector": "Technology", "nakshatra": "Hasta"}
         ]
         
-        self.current_transits = self.get_current_transits()
-
-    def get_current_transits(self):
-        """Mock planetary data - replace with API in production"""
-        return {
-            "retrograde": [
-                {"planet": "Mercury", "sign": "Sagittarius", "nakshatra": "Purva Ashadha", "pada": 3}
-            ],
+        # Current planetary positions (mock data - replace with API in production)
+        self.transits = {
+            "retrograde": [{"planet": "Mercury", "until": "2025-08-16"}],
             "direct": [
-                {"planet": "Sun", "sign": "Capricorn", "nakshatra": "Uttara Ashadha", "pada": 4},
-                {"planet": "Moon", "sign": "Gemini", "nakshatra": "Ardra", "pada": 1},
-                {"planet": "Jupiter", "sign": "Pisces", "nakshatra": "Revati", "pada": 4},
-                {"planet": "Venus", "sign": "Capricorn", "nakshatra": "Uttara Ashadha", "pada": 4}
+                {"planet": "Sun", "sign": "Capricorn", "nakshatra": "Uttara Ashadha"},
+                {"planet": "Jupiter", "sign": "Pisces", "nakshatra": "Revati"}
             ]
         }
 
     def generate_watchlist(self):
-        """Core analysis engine"""
-        watchlist = []
-        warning = ""
-        
-        # Retrograde warnings
-        for p in self.current_transits["retrograde"]:
-            if p["planet"] == "Mercury":
-                warning = f"⚠️ Mercury Retrograde ({p['nakshatra']}): Avoid new investments until {(datetime.now() + timedelta(days=14)).strftime('%b %d')}"
-        
-        # Find favorable sectors
-        favorable_sectors = set()
-        for planet in self.current_transits["direct"]:
-            favorable_sectors.update(self.planet_sectors.get(planet["planet"], []))
+        """Generate recommendations with error handling"""
+        try:
+            # 1. Check for retrograde warnings
+            warnings = []
+            for planet in self.transits["retrograde"]:
+                warnings.append(f"⚠️ {planet['planet']} Retrograde (Caution until {planet['until']})")
             
-            # Special boosts
-            if planet["planet"] == "Jupiter" and planet["nakshatra"] == "Revati":
-                favorable_sectors.add("Pharma")
+            # 2. Find favorable sectors
+            favorable_sectors = set()
+            for planet in self.transits["direct"]:
+                if planet["planet"] in self.planet_sectors:
+                    favorable_sectors.update(self.planet_sectors[planet["planet"]])
+            
+            # 3. Match stocks to favorable sectors
+            recommendations = []
+            for stock in self.stocks_db:
+                if stock["sector"] in favorable_sectors:
+                    signal_strength = "Strong" if any(
+                        p["nakshatra"] == stock["nakshatra"] 
+                        for p in self.transits["direct"]
+                    ) else "Moderate"
+                    
+                    recommendations.append({
+                        "Stock": stock["symbol"],
+                        "Sector": stock["sector"],
+                        "Signal": "BUY",
+                        "Strength": signal_strength,
+                        "Reason": f"{stock['nakshatra']} alignment"
+                    })
+            
+            return pd.DataFrame(recommendations), warnings
         
-        # Match stocks
-        for stock in self.stocks_database:
-            if stock["sector"] in favorable_sectors:
-                strength = "Strong" if any(
-                    p["nakshatra"] == stock["nakshatra"] 
-                    for p in self.current_transits["direct"]
-                ) else "Moderate"
-                
-                watchlist.append({
-                    "Stock": stock["symbol"],
-                    "Sector": stock["sector"],
-                    "Signal": "BUY",
-                    "Strength": strength,
-                    "Planets": ", ".join(
-                        p["planet"] for p in self.current_transits["direct"] 
-                        if stock["sector"] in self.planet_sectors.get(p["planet"], [])
-                    )
-                })
-        
-        return pd.DataFrame(watchlist), warning
+        except Exception as e:
+            print(f"❌ Error generating watchlist: {str(e)}")
+            return pd.DataFrame(), ["Error occurred"]
 
-    def get_trading_calendar(self):
-        """Generate favorable time windows"""
+    def get_trading_times(self):
+        """Get favorable trading times without external dependencies"""
         return [
             {"Date": (datetime.now() + timedelta(days=1)).strftime('%b %d'),
-             "Event": "Moon trine Jupiter",
-             "Action": "Good for buying"},
-            
-            {"Date": (datetime.now() + timedelta(days=4)).strftime('%b %d'),
-             "Event": "Venus conjunct Sun",
-             "Action": "Stable investments"},
-            
-            {"Date": (datetime.now() + timedelta(days=7)).strftime('%b %d'),
-             "Event": "Mars square Saturn",
-             "Action": "Avoid trading"}
+             "Period": "Morning",
+             "Quality": "Good"},
+            {"Date": (datetime.now() + timedelta(days=3)).strftime('%b %d'),
+             "Period": "Afternoon",
+             "Quality": "Avoid"}
         ]
 
-if __name__ == "__main__":
-    advisor = AstroStockAdvisor()
-    
+def main():
     print("\n" + "="*50)
-    print("🌟 ASTROLOGICAL STOCK WATCHLIST".center(50))
+    print("ASTRO STOCK ADVISOR".center(50))
     print("="*50 + "\n")
     
-    # Generate recommendations
-    watchlist, warning = advisor.generate_watchlist()
+    advisor = AstroStockAdvisor()
     
-    if warning:
-        print(warning + "\n")
+    # Generate and display watchlist
+    watchlist, warnings = advisor.generate_watchlist()
     
-    print(watchlist.to_string(index=False))
+    for warning in warnings:
+        print(warning)
     
-    # Show trading calendar
-    print("\n📅 TRADING CALENDAR")
-    print(pd.DataFrame(advisor.get_trading_calendar()).to_string(index=False))
+    if not watchlist.empty:
+        print("\nRecommended Stocks:")
+        print(watchlist.to_string(index=False))
+    else:
+        print("\nNo recommendations generated")
     
-    print(f"\nLast Updated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    # Show trading times
+    print("\nFavorable Trading Times:")
+    print(pd.DataFrame(advisor.get_trading_times()).to_string(index=False))
+    
+    print(f"\nLast Updated: {datetime.now().strftime('%Y-%m-%d %H:%M')}")
+
+if __name__ == "__main__":
+    main()
