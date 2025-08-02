@@ -1,89 +1,55 @@
-"""Astro-Trading Dashboard with Sample Data"""
+"""Astro-Trading Dashboard (Simplified Version)"""
 import streamlit as st
 import pandas as pd
-import plotly.graph_objects as go
 
 def get_sample_transit_data():
     """Generate sample planetary transit data"""
-    data = {
+    return pd.DataFrame({
         "Planet": ["Sun", "Moon", "Mars", "Mercury", "Jupiter", "Venus", "Saturn"],
         "Time": ["00:00:00"]*7,
-        "Motion": ["D", "D", "D", "R", "D", "D", "D"],
+        "Motion": ["Direct", "Direct", "Direct", "Retrograde", "Direct", "Direct", "Direct"],
         "Zodiac": ["Capricorn", "Gemini", "Gemini", "Sagittarius", "Pisces", "Capricorn", "Aquarius"],
         "Degree": [280, 60, 75, 240, 350, 290, 320],
         "Nakshatra": ["Uttara Ashadha", "Ardra", "Punarvasu", "Purva Ashadha", "Revati", "Uttara Ashadha", "Purva Bhadrapada"],
-        "Pada": [4, 1, 1, 3, 4, 4, 2],
-        "Declination": [0.0]*7
-    }
-    return pd.DataFrame(data)
+        "Pada": [4, 1, 1, 3, 4, 4, 2]
+    })
 
-def create_plot(transits):
-    """Create and configure the polar plot"""
-    fig = go.Figure()
+def display_transits(transits):
+    """Display transit data with styling"""
+    st.subheader("Current Planetary Positions")
     
-    # Add planetary traces
-    for _, row in transits.iterrows():
-        fig.add_trace(
-            go.Scatterpolar(
-                r=[row["Degree"]],
-                theta=[row["Zodiac"]],
-                name=row["Planet"],
-                marker=dict(
-                    size=20,
-                    color="red" if row["Motion"] == "R" else "blue",
-                    line=dict(width=2, color="DarkSlateGrey")
-                ),
-                hovertemplate=(
-                    f"<b>{row['Planet']}</b><br>"
-                    f"Zodiac: {row['Zodiac']}<br>"
-                    f"Degree: {row['Degree']}°<br>"
-                    f"Nakshatra: {row['Nakshatra']} (Pada {row['Pada']})<br>"
-                    f"Motion: {'Retrograde' if row['Motion'] == 'R' else 'Direct'}"
-                    "<extra></extra>"
-                )
-            )
-        )
+    # Create columns for better layout
+    col1, col2 = st.columns(2)
     
-    # Configure layout in separate steps for clarity
-    polar_config = dict(
-        angularaxis=dict(
-            direction="clockwise",
-            rotation=90,
-            period=360,
-            tickvals=list(range(0, 360, 30))
-        ),
-        radialaxis=dict(visible=False)
-    )
+    with col1:
+        st.markdown("### Retrograde Planets")
+        retrograde = transits[transits["Motion"] == "Retrograde"]
+        if not retrograde.empty:
+            for _, planet in retrograde.iterrows():
+                st.warning(f"🔴 {planet['Planet']} in {planet['Zodiac']} ({planet['Nakshatra']} Pada {planet['Pada']})")
+        else:
+            st.info("No planets in retrograde")
     
-    fig.update_layout(
-        polar=polar_config,
-        showlegend=True,
-        height=500
-    )
+    with col2:
+        st.markdown("### Direct Motion Planets")
+        direct = transits[transits["Motion"] == "Direct"]
+        for _, planet in direct.iterrows():
+            st.success(f"🔵 {planet['Planet']} in {planet['Zodiac']} ({planet['Nakshatra']} Pada {planet['Pada']})")
     
-    return fig
+    st.subheader("Detailed Transit Data")
+    st.dataframe(transits)
 
 def main():
     st.set_page_config(
         page_title="Astro-Trading Dashboard",
         layout="wide",
-        page_icon="♋",
-        initial_sidebar_state="expanded"
+        page_icon="♋"
     )
     
-    st.title("🌌 Planetary Transit Visualization")
+    st.title("🌌 Planetary Transit Analysis")
     
     transits = get_sample_transit_data()
-    
-    if not transits.empty:
-        st.plotly_chart(
-            create_plot(transits), 
-            use_container_width=True
-        )
-        st.subheader("Planetary Transit Data")
-        st.dataframe(transits, use_container_width=True)
-    else:
-        st.warning("No transit data available")
+    display_transits(transits)
 
 if __name__ == "__main__":
     main()
