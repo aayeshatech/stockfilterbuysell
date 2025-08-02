@@ -1,13 +1,8 @@
-"""Astro-Trading Dashboard with Sample Data"""
+"""Astro-Trading Dashboard with Sample Planetary Data"""
 import streamlit as st
-from datetime import datetime
 import pandas as pd
 import plotly.graph_objects as go
 
-# First install required packages by running:
-# pip install streamlit pandas plotly
-
-# Sample planetary data
 def get_sample_transit_data():
     """Generate sample planetary transit data"""
     return pd.DataFrame([
@@ -51,7 +46,6 @@ def plot_planetary_positions(transits: pd.DataFrame):
                 rotation=90,
                 period=360,
                 tickvals=list(range(0, 360, 30))
-            )
         ),
         radialaxis=dict(visible=False),
         showlegend=True,
@@ -69,7 +63,6 @@ def main():
     
     st.title("🌌 Planetary Transit Visualization")
     
-    # Get sample data
     transits = get_sample_transit_data()
     
     if not transits.empty:
