@@ -100,6 +100,44 @@ st.markdown("""
     .price-down {
         color: red;
     }
+    .buy-sell-badge {
+        padding: 0.25rem 0.5rem;
+        border-radius: 0.25rem;
+        font-weight: bold;
+        display: inline-block;
+        margin-right: 0.5rem;
+    }
+    .buy-badge {
+        background-color: #d4edda;
+        color: #155724;
+    }
+    .sell-badge {
+        background-color: #f8d7da;
+        color: #721c24;
+    }
+    .hold-badge {
+        background-color: #fff3cd;
+        color: #856404;
+    }
+    .transit-detail {
+        font-size: 0.9rem;
+        color: #555;
+        margin-bottom: 0.5rem;
+    }
+    .aspect-detail {
+        font-size: 0.85rem;
+        padding: 0.25rem;
+        border-left: 3px solid #ddd;
+        margin-bottom: 0.25rem;
+    }
+    .aspect-bullish {
+        border-left-color: #2ca02c;
+        background-color: #f0fff0;
+    }
+    .aspect-bearish {
+        border-left-color: #d62728;
+        background-color: #fff0f0;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -143,225 +181,7 @@ def load_watchlist():
         'Hero Moto': 'HEROMOTOCO.NS',
         'Dr Reddy': 'DRREDDY.NS',
         'Cipla': 'CIPLA.NS',
-        'Divis Lab': 'DIVISLAB.NS',
-        'Adani Ports': 'ADANIPORTS.NS',
-        'UltraTech': 'ULTRACEMCO.NS',
-        'Grasim': 'GRASIM.NS',
-        'ACC': 'ACC.NS',
-        'Ambuja Cem': 'AMBUJACEM.NS',
-        'Shree Cement': 'SHREECEM.NS',
-        'Tata Consumer': 'TATACONSUM.NS',
-        'Britannia': 'BRITANNIA.NS',
-        'Eicher Motors': 'EICHERMOT.NS',
-        'Bosch': 'BOSCHLTD.NS',
-        'M&M Financial': 'M&MFIN.NS',
-        'Chola Financial': 'CHOLAFIN.NS',
-        'PFC': 'PFC.NS',
-        'REC': 'REC.NS',
-        'SAIL': 'SAIL.NS',
-        'NMDC': 'NMDC.NS',
-        'VEDL': 'VEDL.NS',
-        'HINDALCO': 'HINDALCO.NS',
-        'Tata Motors': 'TATAMOTORS.NS',
-        'Motherson Sumi': 'MOTHERSUMI.NS',
-        'Bharat Forge': 'BHARATFORG.NS',
-        'Lupin': 'LUPIN.NS',
-        'Aurobindo': 'AUROPHARMA.NS',
-        'Cadila': 'CADILAHC.NS',
-        'Biocon': 'BIOCON.NS',
-        'PI Industries': 'PIIND.NS',
-        'UPL': 'UPL.NS',
-        'Dabur': 'DABUR.NS',
-        'Godrej Consumer': 'GODREJCP.NS',
-        'Colgate': 'COLPAL.NS',
-        'Emami': 'EMAMI.NS',
-        'Bajaj Finserv': 'BAJAJFINSV.NS',
-        'SBI Life': 'SBILIFE.NS',
-        'ICICI Pru': 'ICICIPRULI.NS',
-        'HDFC Life': 'HDFCLIFE.NS',
-        'Max Life': 'MAXLIFE.NS',
-        'Kotak Life': 'KOTAKLIFE.NS',
-        'Adani Green': 'ADANIGREEN.NS',
-        'Adani Total': 'ADANITOTL.NS',
-        'Adani Power': 'ADANIPOWER.NS',
-        'Adani Transmission': 'ADANITRANS.NS',
-        'Adani Enterprises': 'ADANIENT.NS',
-        'Tata Power': 'TATAPOWER.NS',
-        'Reliance Power': 'RPOWER.NS',
-        'JSW Energy': 'JSWENERGY.NS',
-        'NTPC': 'NTPC.NS',
-        'Power Grid': 'POWERGRID.NS',
-        'NHPC': 'NHPC.NS',
-        'SJVN': 'SJVN.NS',
-        'THDC': 'THDC.NS',
-        'IRCON': 'IRCON.NS',
-        'IRFC': 'IRFC.NS',
-        'RVNL': 'RVNL.NS',
-        'IRB Infra': 'IRB.NS',
-        'L&T Infra': 'LTINFRA.NS',
-        'GMR Infra': 'GMRINFRA.NS',
-        'GVK Infra': 'GVKINFRA.NS',
-        'Reliance Infra': 'RELINFRA.NS',
-        'JP Power': 'JPPOWER.NS',
-        'CESC': 'CESC.NS',
-        'Tata Steel': 'TATASTEEL.NS',
-        'JSW Steel': 'JSWSTEEL.NS',
-        'SAIL': 'SAIL.NS',
-        'NMDC': 'NMDC.NS',
-        'VEDL': 'VEDL.NS',
-        'HINDALCO': 'HINDALCO.NS',
-        'National Aluminium': 'NATIONALUM.NS',
-        'Manganese Ore': 'MOIL.NS',
-        'Coal India': 'COALINDIA.NS',
-        'ONGC': 'ONGC.NS',
-        'Oil India': 'OIL.NS',
-        'GAIL': 'GAIL.NS',
-        'BPCL': 'BPCL.NS',
-        'HPCL': 'HINDPETRO.NS',
-        'IOC': 'IOC.NS',
-        'CPCL': 'CHENNPETRO.NS',
-        'MRPL': 'MRPL.NS',
-        'Nayara Energy': 'NAYARA.NS',
-        'Adani Gas': 'ADANIGAS.NS',
-        'Mahanagar Gas': 'MGL.NS',
-        'Gujarat Gas': 'GUJGASLTD.NS',
-        'Indraprastha Gas': 'IGL.NS',
-        'Dharmaj Pet': 'DHARMAJPET.NS',
-        'Deepak Fertilizers': 'DEEPAKFERT.NS',
-        'Coromandel Fertilizers': 'COROMANDEL.NS',
-        'Chambal Fertilizers': 'CHAMBLFERT.NS',
-        'GNFC': 'GNFC.NS',
-        'Tata Chemicals': 'TATACHEM.NS',
-        'PI Industries': 'PIIND.NS',
-        'UPL': 'UPL.NS',
-        'Sumitomo Chemical': 'SUMICHEM.NS',
-        'BASF': 'BASF.NS',
-        'Bayer Cropscience': 'BAYERCROP.NS',
-        'Rallis India': 'RALLIS.NS',
-        'Dhanuka Laboratories': 'DHANUKA.NS',
-        'Insecticides India': 'INSECTICID.NS',
-        'Fertilizers and Chemicals': 'FACT.NS',
-        'Madras Fertilizers': 'MADRASFERT.NS',
-        'National Fertilizers': 'NFL.NS',
-        'Chennai Petroleum': 'CHENNPETRO.NS',
-        'Bharat Petroleum': 'BPCL.NS',
-        'Hindustan Petroleum': 'HINDPETRO.NS',
-        'Indian Oil': 'IOC.NS',
-        'Oil and Natural Gas': 'ONGC.NS',
-        'Oil India': 'OIL.NS',
-        'GAIL India': 'GAIL.NS',
-        'Reliance Industries': 'RELIANCE.NS',
-        'Adani Enterprises': 'ADANIENT.NS',
-        'Adani Ports': 'ADANIPORTS.NS',
-        'Adani Power': 'ADANIPOWER.NS',
-        'Adani Transmission': 'ADANITRANS.NS',
-        'Adani Green Energy': 'ADANIGREEN.NS',
-        'Adani Total Gas': 'ADANITOTL.NS',
-        'Tata Consultancy Services': 'TCS.NS',
-        'Infosys': 'INFY.NS',
-        'Wipro': 'WIPRO.NS',
-        'HCL Technologies': 'HCLTECH.NS',
-        'Tech Mahindra': 'TECHM.NS',
-        'Larsen & Toubro Infotech': 'LTI.NS',
-        'Mindtree': 'MINDTREE.NS',
-        'Mphasis': 'MPHASIS.NS',
-        'Coforge': 'COFORGE.NS',
-        'Persistent Systems': 'PERSISTENT.NS',
-        'Hexaware Technologies': 'HEXAWARE.NS',
-        'Cyient': 'CYIENT.NS',
-        'Zensar Technologies': 'ZENSARTECH.NS',
-        'Tata Elxsi': 'TATAELXSI.NS',
-        'KPIT Technologies': 'KPITTECH.NS',
-        'Bosch': 'BOSCHLTD.NS',
-        'Honeywell Automation': 'HONAUT.NS',
-        'Siemens': 'SIEMENS.NS',
-        'ABB India': 'ABB.NS',
-        'Thermax': 'THERMAX.NS',
-        'Avenue Supermarts': 'DMART.NS',
-        'Future Retail': 'FRETAIL.NS',
-        'Trent': 'TRENT.NS',
-        'Aditya Birla Fashion': 'ABFRL.NS',
-        'Shoppers Stop': 'SHOPPERSSTOP.NS',
-        'V-Mart Retail': 'VMART.NS',
-        'Future Consumer': 'FCONSUMER.NS',
-        'D-Mart': 'DMART.NS',
-        'Reliance Retail': 'RELIANCE.NS',
-        'Tata Consumer': 'TATACONSUM.NS',
-        'ITC': 'ITC.NS',
-        'Godrej Consumer': 'GODREJCP.NS',
-        'Hindustan Unilever': 'HINDUNILVR.NS',
-        'Nestle India': 'NESTLEIND.NS',
-        'Dabur': 'DABUR.NS',
-        'Colgate-Palmolive': 'COLPAL.NS',
-        'Britannia Industries': 'BRITANNIA.NS',
-        'Marico': 'MARICO.NS',
-        'Emami': 'EMAMI.NS',
-        'Godrej Industries': 'GODREJIND.NS',
-        'Bajaj Consumer Care': 'BAJAJCONSUMER.NS',
-        'Gillette India': 'GILLETTE.NS',
-        'Procter & Gamble Hygiene': 'PGHH.NS',
-        'Jyothy Laboratories': 'JYOTHYLAB.NS',
-        'Henkel India': 'HENKEL.NS',
-        'Reckitt Benckiser': 'RECKITTBENCKISER.NS',
-        'Tata Global Beverages': 'TATAGLOBAL.NS',
-        'Coffee Day Enterprises': 'COFFEE.DAY.NS',
-        'Tata Coffee': 'TATACOFFEE.NS',
-        'United Breweries': 'UBL.NS',
-        'Radico Khaitan': 'RADICO.NS',
-        'United Spirits': 'MCDOWELL-N.NS',
-        'Sula Vineyards': 'SULA.NS',
-        'Bira91': 'BIRA91.NS',
-        'Kingfisher': 'KINGFISHER.NS',
-        'Tuborg': 'TUBORG.NS',
-        'Carlsberg': 'CARLSBERG.NS',
-        'Heineken': 'HEINEKEN.NS',
-        'Budweiser': 'BUDWEISER.NS',
-        'Corona': 'CORONA.NS',
-        'Stella Artois': 'STELLAARTOIS.NS',
-        'Hoegaarden': 'HOEGAARDEN.NS',
-        'Leffe': 'LEFFE.NS',
-        'Guinness': 'GUINNESS.NS',
-        'Strongbow': 'STRONGBOW.NS',
-        'Somersby': 'SOMERSBY.NS',
-        'Kronenbourg': 'KRONENBOURG.NS',
-        '1664 Blanc': '1664BLANC.NS',
-        '1664 Rosé': '1664ROSE.NS',
-        '1664 Brut': '1664BRUT.NS',
-        '1664 Blanc Rosé': '1664BLANCROSE.NS',
-        '1664 Blanc Brut': '1664BLANCBRUT.NS',
-        '1664 Rosé Brut': '1664ROSEBRUT.NS',
-        '1664 Blanc Rosé Brut': '1664BLANCROSEBRUT.NS',
-        '1664 Blanc Rosé Brut Imperial': '1664BLANCROSEBRUTIMPERIAL.NS',
-        '1664 Blanc Rosé Brut Imperial Magnum': '1664BLANCROSEBRUTIMPERIALMAGNUM.NS',
-        '1664 Blanc Rosé Brut Imperial Jeroboam': '1664BLANCROSEBRUTIMPERIALJEROBOAM.NS',
-        '1664 Blanc Rosé Brut Imperial Methuselah': '1664BLANCROSEBRUTIMPERIALMETHUSELAH.NS',
-        '1664 Blanc Rosé Brut Imperial Salmanazar': '1664BLANCROSEBRUTIMPERIALSALMANAZAR.NS',
-        '1664 Blanc Rosé Brut Imperial Balthazar': '1664BLANCROSEBRUTIMPERIALBALTHAZAR.NS',
-        '1664 Blanc Rosé Brut Imperial Nebuchadnezzar': '1664BLANCROSEBRUTIMPERIALNEBUCHADNEZZAR.NS',
-        '1664 Blanc Rosé Brut Imperial Solomon': '1664BLANCROSEBRUTIMPERIALSOLOMON.NS',
-        '1664 Blanc Rosé Brut Imperial Sovereign': '1664BLANCROSEBRUTIMPERIALSOVEREIGN.NS',
-        '1664 Blanc Rosé Brut Imperial Primat': '1664BLANCROSEBRUTIMPERIALPRIMAT.NS',
-        '1664 Blanc Rosé Brut Imperial Melchizedek': '1664BLANCROSEBRUTIMPERIALMELCHIZEDEK.NS',
-        '1664 Blanc Rosé Brut Imperial Goliath': '1664BLANCROSEBRUTIMPERIALGOLIATH.NS',
-        '1664 Blanc Rosé Brut Imperial Melchior': '1664BLANCROSEBRUTIMPERIALMELCHIOR.NS',
-        '1664 Blanc Rosé Brut Imperial Balthasar': '1664BLANCROSEBRUTIMPERIALBALTHASAR.NS',
-        '1664 Blanc Rosé Brut Imperial Caspar': '1664BLANCROSEBRUTIMPERIALCASPAR.NS',
-        '1664 Blanc Rosé Brut Imperial Melchior Balthasar Caspar': '1664BLANCROSEBRUTIMPERIALMELCHIORBALTHASARCASPAR.NS',
-        '1664 Blanc Rosé Brut Imperial Three Wise Men': '1664BLANCROSEBRUTIMPERIALTHREEWISEMEN.NS',
-        '1664 Blanc Rosé Brut Imperial Three Kings': '1664BLANCROSEBRUTIMPERIALTHREEKINGS.NS',
-        '1664 Blanc Rosé Brut Imperial Three Magi': '1664BLANCROSEBRUTIMPERIALTHREEMAGI.NS',
-        '1664 Blanc Rosé Brut Imperial Three Wise Men from the East': '1664BLANCROSEBRUTIMPERIALTHREEWISEMENFROMTHEEAST.NS',
-        '1664 Blanc Rosé Brut Imperial Three Kings from the East': '1664BLANCROSEBRUTIMPERIALTHREEKINGSFROMTHEEAST.NS',
-        '1664 Blanc Rosé Brut Imperial Three Magi from the East': '1664BLANCROSEBRUTIMPERIALTHREEMAGIFROMTHEEAST.NS',
-        '1664 Blanc Rosé Brut Imperial Three Wise Men from the East who followed the star to Bethlehem': '1664BLANCROSEBRUTIMPERIALTHREEWISEMENFROMTHEEASTWHOFOLLOWEDTHESTARTOBETHLEHEM.NS',
-        '1664 Blanc Rosé Brut Imperial Three Kings from the East who followed the star to Bethlehem': '1664BLANCROSEBRUTIMPERIALTHREEKINGSFROMTHEEASTWHOFOLLOWEDTHESTARTOBETHLEHEM.NS',
-        '1664 Blanc Rosé Brut Imperial Three Magi from the East who followed the star to Bethlehem': '1664BLANCROSEBRUTIMPERIALTHREEMAGIFROMTHEEASTWHOFOLLOWEDTHESTARTOBETHLEHEM.NS',
-        '1664 Blanc Rosé Brut Imperial Three Wise Men from the East who followed the star to Bethlehem to worship the newborn King of the Jews': '1664BLANCROSEBRUTIMPERIALTHREEWISEMENFROMTHEEASTWHOFOLLOWEDTHESTARTOBETHLEHEMTOWORSHIPTHENEWBORNKINGOFTHEJEWS.NS',
-        '1664 Blanc Rosé Brut Imperial Three Kings from the East who followed the star to Bethlehem to worship the newborn King of the Jews': '1664BLANCROSEBRUTIMPERIALTHREEKINGSFROMTHEEASTWHOFOLLOWEDTHESTARTOBETHLEHEMTOWORSHIPTHENEWBORNKINGOFTHEJEWS.NS',
-        '1664 Blanc Rosé Brut Imperial Three Magi from the East who followed the star to Bethlehem to worship the newborn King of the Jews': '1664BLANCROSEBRUTIMPERIALTHREEMAGIFROMTHEEASTWHOFOLLOWEDTHESTARTOBETHLEHEMTOWORSHIPTHENEWBORNKINGOFTHEJEWS.NS',
-        '1664 Blanc Rosé Brut Imperial Three Wise Men from the East who followed the star to Bethlehem to worship the newborn King of the Jews and present him with gifts of gold, frankincense, and myrrh': '1664BLANCROSEBRUTIMPERIALTHREEWISEMENFROMTHEEASTWHOFOLLOWEDTHESTARTOBETHLEHEMTOWORSHIPTHENEWBORNKINGOFTHEJEWSANDPRESENTHIMWITHGIFTSOFGOLDFRANKINCENSEANDMYRRH.NS',
-        '1664 Blanc Rosé Brut Imperial Three Kings from the East who followed the star to Bethlehem to worship the newborn King of the Jews and present him with gifts of gold, frankincense, and myrrh': '1664BLANCROSEBRUTIMPERIALTHREEKINGSFROMTHEEASTWHOFOLLOWEDTHESTARTOBETHLEHEMTOWORSHIPTHENEWBORNKINGOFTHEJEWSANDPRESENTHIMWITHGIFTSOFGOLDFRANKINCENSEANDMYRRH.NS',
-        '1664 Blanc Rosé Brut Imperial Three Magi from the East who followed the star to Bethlehem to worship the newborn King of the Jews and present him with gifts of gold, frankincense, and myrrh': '1664BLANCROSEBRUTIMPERIALTHREEMAGIFROMTHEEASTWHOFOLLOWEDTHESTARTOBETHLEHEMTOWORSHIPTHENEWBORNKINGOFTHEJEWSANDPRESENTHIMWITHGIFTSOFGOLDFRANKINCENSEANDMYRRH.NS'
+        'Divis Lab': 'DIVISLAB.NS'
     }
     
     sectors = {
@@ -401,188 +221,7 @@ def load_watchlist():
         'Hero Moto': 'Auto',
         'Dr Reddy': 'Pharma',
         'Cipla': 'Pharma',
-        'Divis Lab': 'Pharma',
-        'Adani Ports': 'Logistics',
-        'UltraTech': 'Cement',
-        'Grasim': 'Cement',
-        'ACC': 'Cement',
-        'Ambuja Cem': 'Cement',
-        'Shree Cement': 'Cement',
-        'Tata Consumer': 'FMCG',
-        'Britannia': 'FMCG',
-        'Eicher Motors': 'Auto',
-        'Bosch': 'Auto Ancillary',
-        'M&M Financial': 'NBFC',
-        'Chola Financial': 'NBFC',
-        'PFC': 'Power Finance',
-        'REC': 'Power Finance',
-        'SAIL': 'Metals',
-        'NMDC': 'Mining',
-        'VEDL': 'Metals',
-        'HINDALCO': 'Metals',
-        'Tata Motors': 'Auto',
-        'Motherson Sumi': 'Auto Ancillary',
-        'Bharat Forge': 'Auto Ancillary',
-        'Lupin': 'Pharma',
-        'Aurobindo': 'Pharma',
-        'Cadila': 'Pharma',
-        'Biocon': 'Pharma',
-        'PI Industries': 'Agrochemicals',
-        'UPL': 'Agrochemicals',
-        'Dabur': 'FMCG',
-        'Godrej Consumer': 'FMCG',
-        'Colgate': 'FMCG',
-        'Emami': 'FMCG',
-        'Bajaj Finserv': 'Financial',
-        'SBI Life': 'Insurance',
-        'ICICI Pru': 'Insurance',
-        'HDFC Life': 'Insurance',
-        'Max Life': 'Insurance',
-        'Kotak Life': 'Insurance',
-        'Adani Green': 'Power',
-        'Adani Total': 'Oil & Gas',
-        'Adani Power': 'Power',
-        'Adani Transmission': 'Power',
-        'Adani Enterprises': 'Conglomerate',
-        'Tata Power': 'Power',
-        'Reliance Power': 'Power',
-        'JSW Energy': 'Power',
-        'NHPC': 'Power',
-        'SJVN': 'Power',
-        'THDC': 'Power',
-        'IRCON': 'Infrastructure',
-        'IRFC': 'Infrastructure',
-        'RVNL': 'Infrastructure',
-        'IRB Infra': 'Infrastructure',
-        'L&T Infra': 'Infrastructure',
-        'GMR Infra': 'Infrastructure',
-        'GVK Infra': 'Infrastructure',
-        'Reliance Infra': 'Infrastructure',
-        'JP Power': 'Power',
-        'CESC': 'Power',
-        'JSW Steel': 'Metals',
-        'National Aluminium': 'Metals',
-        'Manganese Ore': 'Mining',
-        'Oil India': 'Oil & Gas',
-        'GAIL': 'Oil & Gas',
-        'HPCL': 'Oil & Gas',
-        'IOC': 'Oil & Gas',
-        'CPCL': 'Oil & Gas',
-        'MRPL': 'Oil & Gas',
-        'Nayara Energy': 'Oil & Gas',
-        'Adani Gas': 'Oil & Gas',
-        'Mahanagar Gas': 'Oil & Gas',
-        'Gujarat Gas': 'Oil & Gas',
-        'Indraprastha Gas': 'Oil & Gas',
-        'Dharmaj Pet': 'Oil & Gas',
-        'Deepak Fertilizers': 'Fertilizers',
-        'Coromandel Fertilizers': 'Fertilizers',
-        'Chambal Fertilizers': 'Fertilizers',
-        'GNFC': 'Fertilizers',
-        'Tata Chemicals': 'Chemicals',
-        'Sumitomo Chemical': 'Chemicals',
-        'BASF': 'Chemicals',
-        'Bayer Cropscience': 'Agrochemicals',
-        'Rallis India': 'Agrochemicals',
-        'Dhanuka Laboratories': 'Agrochemicals',
-        'Insecticides India': 'Agrochemicals',
-        'Fertilizers and Chemicals': 'Fertilizers',
-        'Madras Fertilizers': 'Fertilizers',
-        'National Fertilizers': 'Fertilizers',
-        'Chennai Petroleum': 'Oil & Gas',
-        'Bharat Petroleum': 'Oil & Gas',
-        'Hindustan Petroleum': 'Oil & Gas',
-        'Indian Oil': 'Oil & Gas',
-        'Larsen & Toubro Infotech': 'IT',
-        'Mindtree': 'IT',
-        'Mphasis': 'IT',
-        'Coforge': 'IT',
-        'Persistent Systems': 'IT',
-        'Hexaware Technologies': 'IT',
-        'Cyient': 'IT',
-        'Zensar Technologies': 'IT',
-        'Tata Elxsi': 'IT',
-        'KPIT Technologies': 'IT',
-        'Honeywell Automation': 'Industrial',
-        'Siemens': 'Industrial',
-        'ABB India': 'Industrial',
-        'Thermax': 'Industrial',
-        'Avenue Supermarts': 'Retail',
-        'Future Retail': 'Retail',
-        'Trent': 'Retail',
-        'Aditya Birla Fashion': 'Retail',
-        'Shoppers Stop': 'Retail',
-        'V-Mart Retail': 'Retail',
-        'Future Consumer': 'FMCG',
-        'D-Mart': 'Retail',
-        'Reliance Retail': 'Retail',
-        'Marico': 'FMCG',
-        'Godrej Industries': 'Conglomerate',
-        'Bajaj Consumer Care': 'FMCG',
-        'Gillette India': 'FMCG',
-        'Procter & Gamble Hygiene': 'FMCG',
-        'Jyothy Laboratories': 'FMCG',
-        'Henkel India': 'FMCG',
-        'Reckitt Benckiser': 'FMCG',
-        'Tata Global Beverages': 'FMCG',
-        'Coffee Day Enterprises': 'FMCG',
-        'Tata Coffee': 'FMCG',
-        'United Breweries': 'FMCG',
-        'Radico Khaitan': 'FMCG',
-        'United Spirits': 'FMCG',
-        'Sula Vineyards': 'FMCG',
-        'Bira91': 'FMCG',
-        'Kingfisher': 'FMCG',
-        'Tuborg': 'FMCG',
-        'Carlsberg': 'FMCG',
-        'Heineken': 'FMCG',
-        'Budweiser': 'FMCG',
-        'Corona': 'FMCG',
-        'Stella Artois': 'FMCG',
-        'Hoegaarden': 'FMCG',
-        'Leffe': 'FMCG',
-        'Guinness': 'FMCG',
-        'Strongbow': 'FMCG',
-        'Somersby': 'FMCG',
-        'Kronenbourg': 'FMCG',
-        '1664 Blanc': 'FMCG',
-        '1664 Rosé': 'FMCG',
-        '1664 Brut': 'FMCG',
-        '1664 Blanc Rosé': 'FMCG',
-        '1664 Blanc Brut': 'FMCG',
-        '1664 Rosé Brut': 'FMCG',
-        '1664 Blanc Rosé Brut': 'FMCG',
-        '1664 Blanc Rosé Brut Imperial': 'FMCG',
-        '1664 Blanc Rosé Brut Imperial Magnum': 'FMCG',
-        '1664 Blanc Rosé Brut Imperial Jeroboam': 'FMCG',
-        '1664 Blanc Rosé Brut Imperial Methuselah': 'FMCG',
-        '1664 Blanc Rosé Brut Imperial Salmanazar': 'FMCG',
-        '1664 Blanc Rosé Brut Imperial Balthazar': 'FMCG',
-        '1664 Blanc Rosé Brut Imperial Nebuchadnezzar': 'FMCG',
-        '1664 Blanc Rosé Brut Imperial Solomon': 'FMCG',
-        '1664 Blanc Rosé Brut Imperial Sovereign': 'FMCG',
-        '1664 Blanc Rosé Brut Imperial Primat': 'FMCG',
-        '1664 Blanc Rosé Brut Imperial Melchizedek': 'FMCG',
-        '1664 Blanc Rosé Brut Imperial Goliath': 'FMCG',
-        '1664 Blanc Rosé Brut Imperial Melchior': 'FMCG',
-        '1664 Blanc Rosé Brut Imperial Balthasar': 'FMCG',
-        '1664 Blanc Rosé Brut Imperial Caspar': 'FMCG',
-        '1664 Blanc Rosé Brut Imperial Melchior Balthasar Caspar': 'FMCG',
-        '1664 Blanc Rosé Brut Imperial Three Wise Men': 'FMCG',
-        '1664 Blanc Rosé Brut Imperial Three Kings': 'FMCG',
-        '1664 Blanc Rosé Brut Imperial Three Magi': 'FMCG',
-        '1664 Blanc Rosé Brut Imperial Three Wise Men from the East': 'FMCG',
-        '1664 Blanc Rosé Brut Imperial Three Kings from the East': 'FMCG',
-        '1664 Blanc Rosé Brut Imperial Three Magi from the East': 'FMCG',
-        '1664 Blanc Rosé Brut Imperial Three Wise Men from the East who followed the star to Bethlehem': 'FMCG',
-        '1664 Blanc Rosé Brut Imperial Three Kings from the East who followed the star to Bethlehem': 'FMCG',
-        '1664 Blanc Rosé Brut Imperial Three Magi from the East who followed the star to Bethlehem': 'FMCG',
-        '1664 Blanc Rosé Brut Imperial Three Wise Men from the East who followed the star to Bethlehem to worship the newborn King of the Jews': 'FMCG',
-        '1664 Blanc Rosé Brut Imperial Three Kings from the East who followed the star to Bethlehem to worship the newborn King of the Jews': 'FMCG',
-        '1664 Blanc Rosé Brut Imperial Three Magi from the East who followed the star to Bethlehem to worship the newborn King of the Jews': 'FMCG',
-        '1664 Blanc Rosé Brut Imperial Three Wise Men from the East who followed the star to Bethlehem to worship the newborn King of the Jews and present him with gifts of gold, frankincense, and myrrh': 'FMCG',
-        '1664 Blanc Rosé Brut Imperial Three Kings from the East who followed the star to Bethlehem to worship the newborn King of the Jews and present him with gifts of gold, frankincense, and myrrh': 'FMCG',
-        '1664 Blanc Rosé Brut Imperial Three Magi from the East who followed the star to Bethlehem to worship the newborn King of the Jews and present him with gifts of gold, frankincense, and myrrh': 'FMCG'
+        'Divis Lab': 'Pharma'
     }
     
     return watchlist, sectors
@@ -755,60 +394,12 @@ def generate_trading_signals(aspects, symbol, sector, current_time):
             'bullish': [('Venus', 'any', 'Trine'), ('Jupiter', 'any', 'Trine')],
             'bearish': [('Saturn', 'any', 'Square'), ('Rahu', 'any', 'Square')]
         },
-        'NBFC': {
-            'bullish': [('Jupiter', 'any', 'Trine'), ('Venus', 'any', 'Trine')],
-            'bearish': [('Saturn', 'any', 'Square'), ('Rahu', 'any', 'Square')]
-        },
-        'Insurance': {
-            'bullish': [('Jupiter', 'any', 'Trine'), ('Venus', 'any', 'Trine')],
-            'bearish': [('Saturn', 'any', 'Square'), ('Rahu', 'any', 'Square')]
-        },
         'Infrastructure': {
             'bullish': [('Mars', 'any', 'Trine'), ('Jupiter', 'any', 'Trine')],
             'bearish': [('Saturn', 'any', 'Square'), ('Rahu', 'any', 'Square')]
         },
-        'Cement': {
-            'bullish': [('Mars', 'any', 'Trine'), ('Jupiter', 'any', 'Trine')],
-            'bearish': [('Saturn', 'any', 'Square'), ('Rahu', 'any', 'Square')]
-        },
-        'Agrochemicals': {
-            'bullish': [('Jupiter', 'any', 'Trine'), ('Venus', 'any', 'Trine')],
-            'bearish': [('Saturn', 'any', 'Square'), ('Rahu', 'any', 'Square')]
-        },
-        'Chemicals': {
-            'bullish': [('Mercury', 'any', 'Trine'), ('Jupiter', 'any', 'Trine')],
-            'bearish': [('Saturn', 'any', 'Square'), ('Rahu', 'any', 'Square')]
-        },
-        'Industrial': {
-            'bullish': [('Mars', 'any', 'Trine'), ('Jupiter', 'any', 'Trine')],
-            'bearish': [('Saturn', 'any', 'Square'), ('Rahu', 'any', 'Square')]
-        },
-        'Retail': {
-            'bullish': [('Venus', 'any', 'Trine'), ('Jupiter', 'any', 'Trine')],
-            'bearish': [('Saturn', 'any', 'Square'), ('Rahu', 'any', 'Square')]
-        },
-        'Conglomerate': {
-            'bullish': [('Jupiter', 'any', 'Trine'), ('Venus', 'any', 'Trine')],
-            'bearish': [('Saturn', 'any', 'Square'), ('Rahu', 'any', 'Square')]
-        },
         'Mining': {
             'bullish': [('Mars', 'any', 'Trine'), ('Jupiter', 'any', 'Trine')],
-            'bearish': [('Saturn', 'any', 'Square'), ('Rahu', 'any', 'Square')]
-        },
-        'Fertilizers': {
-            'bullish': [('Jupiter', 'any', 'Trine'), ('Venus', 'any', 'Trine')],
-            'bearish': [('Saturn', 'any', 'Square'), ('Rahu', 'any', 'Square')]
-        },
-        'Auto Ancillary': {
-            'bullish': [('Mars', 'any', 'Trine'), ('Jupiter', 'any', 'Trine')],
-            'bearish': [('Saturn', 'any', 'Square'), ('Rahu', 'any', 'Square')]
-        },
-        'Power Finance': {
-            'bullish': [('Jupiter', 'any', 'Trine'), ('Venus', 'any', 'Trine')],
-            'bearish': [('Saturn', 'any', 'Square'), ('Rahu', 'any', 'Square')]
-        },
-        'Logistics': {
-            'bullish': [('Mercury', 'any', 'Trine'), ('Jupiter', 'any', 'Trine')],
             'bearish': [('Saturn', 'any', 'Square'), ('Rahu', 'any', 'Square')]
         }
     }
@@ -826,7 +417,8 @@ def generate_trading_signals(aspects, symbol, sector, current_time):
                     'type': 'bullish',
                     'strength': strength,
                     'reason': f"{p1}-{p2} {aspect_type}",
-                    'time': current_time.strftime("%H:%M")
+                    'time': current_time.strftime("%H:%M"),
+                    'detail': f"{p1} in {aspect_type} with {p2} (Strength: {strength:.2f})"
                 })
         
         # Check bearish signals
@@ -837,7 +429,8 @@ def generate_trading_signals(aspects, symbol, sector, current_time):
                     'type': 'bearish',
                     'strength': strength,
                     'reason': f"{p1}-{p2} {aspect_type}",
-                    'time': current_time.strftime("%H:%M")
+                    'time': current_time.strftime("%H:%M"),
+                    'detail': f"{p1} in {aspect_type} with {p2} (Strength: {strength:.2f})"
                 })
     
     # Check sector-specific rules
@@ -853,7 +446,8 @@ def generate_trading_signals(aspects, symbol, sector, current_time):
                         'type': 'bullish',
                         'strength': strength * 1.2,  # Boost sector signals
                         'reason': f"{sector}: {p1}-{p2} {aspect_type}",
-                        'time': current_time.strftime("%H:%M")
+                        'time': current_time.strftime("%H:%M"),
+                        'detail': f"Sector {sector}: {p1} in {aspect_type} with {p2} (Strength: {strength*1.2:.2f})"
                     })
             
             # Sector bearish
@@ -863,7 +457,8 @@ def generate_trading_signals(aspects, symbol, sector, current_time):
                         'type': 'bearish',
                         'strength': strength * 1.2,  # Boost sector signals
                         'reason': f"{sector}: {p1}-{p2} {aspect_type}",
-                        'time': current_time.strftime("%H:%M")
+                        'time': current_time.strftime("%H:%M"),
+                        'detail': f"Sector {sector}: {p1} in {aspect_type} with {p2} (Strength: {strength*1.2:.2f})"
                     })
     
     return signals
@@ -910,6 +505,17 @@ def get_market_data(symbol, ticker):
             'volume': None
         }
 
+# Format planetary position
+def format_planetary_position(longitude):
+    """Format planetary longitude to zodiac sign and degree"""
+    signs = ["Ari", "Tau", "Gem", "Can", "Leo", "Vir", 
+             "Lib", "Sco", "Sag", "Cap", "Aqu", "Pis"]
+    sign_num = int(longitude / 30)
+    sign = signs[sign_num]
+    degree = longitude % 30
+    minute = (degree - int(degree)) * 60
+    return f"{int(degree)}°{int(minute)}' {sign}"
+
 # Main dashboard
 def main():
     st.markdown('<h1 class="main-header">🌌 Planetary Transit Trading Dashboard</h1>', unsafe_allow_html=True)
@@ -939,15 +545,15 @@ def main():
     # Symbol search
     search_term = st.sidebar.text_input("Search Symbol", "")
     
-    # Main content area
-    col1, col2, col3 = st.columns([3, 2, 2])
-    
     # Current time
     current_time = datetime.now()
     
     # Calculate planetary positions and aspects
     positions = calculate_planetary_positions(current_time)
     aspects = calculate_planetary_aspects(positions)
+    
+    # Main content area
+    col1, col2, col3 = st.columns([3, 2, 2])
     
     # Generate signals for watchlist
     signal_data = []
@@ -973,6 +579,17 @@ def main():
         bullish_strength = sum(s['strength'] for s in signals if s['type'] == 'bullish')
         bearish_strength = sum(s['strength'] for s in signals if s['type'] == 'bearish')
         
+        # Determine buy/sell/hold recommendation
+        if bullish_strength > bearish_strength * 1.5:
+            recommendation = "BUY"
+            recommendation_class = "buy-badge"
+        elif bearish_strength > bullish_strength * 1.5:
+            recommendation = "SELL"
+            recommendation_class = "sell-badge"
+        else:
+            recommendation = "HOLD"
+            recommendation_class = "hold-badge"
+        
         if bullish_strength > bearish_strength:
             overall_signal = "🐂 Bullish"
             signal_class = "signal-bullish"
@@ -990,10 +607,13 @@ def main():
             'Change %': market_data['change_pct'],
             'Signal': overall_signal,
             'Signal Class': signal_class,
+            'Recommendation': recommendation,
+            'Recommendation Class': recommendation_class,
             'Bullish Strength': round(bullish_strength, 2),
             'Bearish Strength': round(bearish_strength, 2),
-            'Recent Signals': ", ".join([f"{s['reason']} ({s['time']})" for s in signals[:3]]),
-            'Signals': signals
+            'Recent Signals': ", ".join([s['reason'] for s in signals[:3]]),
+            'Signals': signals,
+            'Transit Details': [s['detail'] for s in signals]
         })
     
     # Display signals table
@@ -1011,10 +631,15 @@ def main():
                 else f"<span class='price-down'>{x:.2f}%</span>" if x is not None and x < 0 
                 else "N/A"
             )
+            signal_df['Recommendation'] = signal_df.apply(
+                lambda row: f"<span class='buy-sell-badge {row[\"Recommendation Class\"]}'>{row['Recommendation']}</span>", 
+                axis=1
+            )
             
             # Display with styling
             st.dataframe(
-                signal_df.style.applymap(
+                signal_df[['Symbol', 'Sector', 'Price', 'Change %', 'Recommendation', 'Signal', 'Bullish Strength', 'Bearish Strength', 'Recent Signals']]
+                .style.applymap(
                     lambda x: f"color: {'green' if 'Bullish' in x else 'red' if 'Bearish' in x else 'gray'}",
                     subset=['Signal']
                 ),
@@ -1024,22 +649,44 @@ def main():
         else:
             st.info("No signals generated for selected filters")
     
-    # Display planetary aspects
+    # Display planetary positions
     with col2:
-        st.header("Planetary Aspects")
+        st.header("Planetary Positions")
         
-        if aspects:
-            aspect_df = pd.DataFrame(aspects)
-            aspect_df = aspect_df.sort_values('strength', ascending=False)
-            aspect_df['strength'] = aspect_df['strength'].apply(lambda x: f"{x:.2f}")
-            aspect_df['angle'] = aspect_df['angle'].apply(lambda x: f"{x:.1f}°")
+        if positions:
+            # Create positions DataFrame
+            pos_data = []
+            for planet, longitude in positions.items():
+                pos_data.append({
+                    'Planet': planet,
+                    'Position': format_planetary_position(longitude),
+                    'Longitude': round(longitude, 2)
+                })
             
-            st.dataframe(
-                aspect_df[['planet1', 'planet2', 'aspect', 'angle', 'strength']],
-                use_container_width=True
-            )
+            pos_df = pd.DataFrame(pos_data)
+            st.dataframe(pos_df, use_container_width=True)
+            
+            st.subheader("Planetary Aspects")
+            
+            if aspects:
+                aspect_df = pd.DataFrame(aspects)
+                aspect_df = aspect_df.sort_values('strength', ascending=False)
+                aspect_df['strength'] = aspect_df['strength'].apply(lambda x: f"{x:.2f}")
+                aspect_df['angle'] = aspect_df['angle'].apply(lambda x: f"{x:.1f}°")
+                
+                # Display aspects with color coding
+                for _, aspect in aspect_df.iterrows():
+                    aspect_class = "aspect-bullish" if aspect['strength'] > '0.70' else "aspect-bearish" if aspect['strength'] < '0.30' else ""
+                    st.markdown(
+                        f"<div class='aspect-detail {aspect_class}'>"
+                        f"<strong>{aspect['planet1']} - {aspect['planet2']}</strong> {aspect['aspect']} "
+                        f"({aspect['angle']}, Strength: {aspect['strength']})</div>", 
+                        unsafe_allow_html=True
+                    )
+            else:
+                st.info("No significant aspects at this time")
         else:
-            st.info("No significant aspects at this time")
+            st.info("Planetary positions not available")
     
     # Display sector overview
     with col3:
@@ -1080,75 +727,168 @@ def main():
             else:
                 st.info("Plotly not available - cannot display charts")
     
-    # Timeline section
-    st.header("Intraday Signal Timeline")
+    # Detailed transit information section
+    st.header("Detailed Planetary Transit Information")
     
-    # Generate timeline data for the day
-    timeline_data = []
-    start_time = current_time.replace(hour=9, minute=15, second=0, microsecond=0)  # Market open
-    end_time = current_time.replace(hour=15, minute=30, second=0, microsecond=0)    # Market close
+    # Create tabs for different views
+    tab1, tab2, tab3 = st.tabs(["Symbol Details", "All Aspects", "Timeline"])
     
-    # Generate signals at 15-minute intervals
-    time_point = start_time
-    while time_point <= end_time and time_point <= current_time:
-        # Calculate positions at this time
-        positions_at_time = calculate_planetary_positions(time_point)
-        aspects_at_time = calculate_planetary_aspects(positions_at_time)
+    with tab1:
+        st.subheader("Symbol-wise Transit Details")
         
-        # Generate signals for all symbols
-        for symbol, ticker in watchlist.items():
-            sector = sectors.get(symbol, 'Unknown')
-            if sector not in selected_sectors:
-                continue
-                
-            signals = generate_trading_signals(aspects_at_time, symbol, sector, time_point)
-            signals = [s for s in signals if s['strength'] >= min_strength]
+        # Symbol selector
+        selected_symbol = st.selectbox("Select Symbol", options=[s['Symbol'] for s in signal_data])
+        
+        if selected_symbol:
+            symbol_data = next(s for s in signal_data if s['Symbol'] == selected_symbol)
             
-            for signal in signals:
-                timeline_data.append({
-                    'Time': time_point.strftime("%H:%M"),
-                    'Symbol': symbol,
-                    'Signal': signal['type'],
-                    'Strength': signal['strength'],
-                    'Reason': signal['reason']
-                })
-        
-        # Next time point
-        time_point += timedelta(minutes=15)
+            # Display symbol details
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                st.markdown(f"### {selected_symbol}")
+                st.markdown(f"**Sector:** {symbol_data['Sector']}")
+                st.markdown(f"**Current Price:** {symbol_data['Price']}")
+                st.markdown(f"**Change:** {symbol_data['Change %']}")
+                st.markdown(f"**Signal:** <span class='{symbol_data['Signal Class']}'>{symbol_data['Signal']}</span>", unsafe_allow_html=True)
+                st.markdown(f"**Recommendation:** <span class='buy-sell-badge {symbol_data['Recommendation Class']}'>{symbol_data['Recommendation']}</span>", unsafe_allow_html=True)
+            
+            with col2:
+                st.markdown("### Signal Strength")
+                st.markdown(f"**Bullish Strength:** {symbol_data['Bullish Strength']}")
+                st.markdown(f"**Bearish Strength:** {symbol_data['Bearish Strength']}")
+                
+                # Signal strength bar chart
+                if PLOTLY_AVAILABLE:
+                    fig = go.Figure()
+                    fig.add_trace(go.Bar(
+                        name='Bullish',
+                        x=['Bullish'],
+                        y=[symbol_data['Bullish Strength']],
+                        marker_color='green'
+                    ))
+                    fig.add_trace(go.Bar(
+                        name='Bearish',
+                        x=['Bearish'],
+                        y=[symbol_data['Bearish Strength']],
+                        marker_color='red'
+                    ))
+                    fig.update_layout(
+                        title="Signal Strength Comparison",
+                        yaxis_title="Strength",
+                        height=300
+                    )
+                    st.plotly_chart(fig, use_container_width=True)
+            
+            # Display transit details
+            st.markdown("### Active Transits")
+            if symbol_data['Transit Details']:
+                for detail in symbol_data['Transit Details']:
+                    st.markdown(f"<div class='transit-detail'>🔮 {detail}</div>", unsafe_allow_html=True)
+            else:
+                st.info("No significant transits affecting this symbol at this time")
     
-    # Display timeline
-    if timeline_data:
-        timeline_df = pd.DataFrame(timeline_data)
+    with tab2:
+        st.subheader("All Planetary Aspects")
         
-        # Create scatter plot if plotly is available
-        if PLOTLY_AVAILABLE:
-            fig = px.scatter(
-                timeline_df,
-                x='Time',
-                y='Symbol',
-                color='Signal',
-                size='Strength',
-                color_discrete_map={'bullish': 'green', 'bearish': 'red'},
-                title="Signal Timeline Throughout the Day",
-                height=400
+        if aspects:
+            # Create detailed aspects table
+            aspect_details = []
+            for aspect in aspects:
+                aspect_details.append({
+                    'Planet 1': aspect['planet1'],
+                    'Planet 2': aspect['planet2'],
+                    'Aspect': aspect['aspect'],
+                    'Angle': f"{aspect['angle']:.1f}°",
+                    'Strength': aspect['strength'],
+                    'Orb': f"{aspect['orb_used']:.1f}°",
+                    'Type': 'Bullish' if aspect['strength'] > 0.7 else 'Bearish' if aspect['strength'] < 0.3 else 'Neutral'
+                })
+            
+            aspect_df = pd.DataFrame(aspect_details)
+            aspect_df = aspect_df.sort_values('Strength', ascending=False)
+            
+            # Color code the type column
+            def highlight_type(val):
+                color = 'green' if val == 'Bullish' else 'red' if val == 'Bearish' else 'gray'
+                return f'color: {color}'
+            
+            st.dataframe(
+                aspect_df.style.applymap(highlight_type, subset=['Type']),
+                use_container_width=True
             )
-            fig.update_layout(
-                xaxis_title="Time",
-                yaxis_title="Symbol",
-                showlegend=True
-            )
-            st.plotly_chart(fig, use_container_width=True)
         else:
-            st.info("Plotly not available - cannot display timeline chart")
+            st.info("No significant aspects at this time")
+    
+    with tab3:
+        st.header("Intraday Signal Timeline")
         
-        # Show recent signals in a table
-        st.subheader("Recent Signals")
-        recent_signals = sorted(timeline_data, key=lambda x: x['Time'], reverse=True)[:10]
-        recent_df = pd.DataFrame(recent_signals)
-        recent_df['Strength'] = recent_df['Strength'].apply(lambda x: f"{x:.2f}")
-        st.dataframe(recent_df, use_container_width=True)
-    else:
-        st.info("No signals generated in the timeline")
+        # Generate timeline data for the day
+        timeline_data = []
+        start_time = current_time.replace(hour=9, minute=15, second=0, microsecond=0)  # Market open
+        end_time = current_time.replace(hour=15, minute=30, second=0, microsecond=0)    # Market close
+        
+        # Generate signals at 15-minute intervals
+        time_point = start_time
+        while time_point <= end_time and time_point <= current_time:
+            # Calculate positions at this time
+            positions_at_time = calculate_planetary_positions(time_point)
+            aspects_at_time = calculate_planetary_aspects(positions_at_time)
+            
+            # Generate signals for all symbols
+            for symbol, ticker in watchlist.items():
+                sector = sectors.get(symbol, 'Unknown')
+                if sector not in selected_sectors:
+                    continue
+                    
+                signals = generate_trading_signals(aspects_at_time, symbol, sector, time_point)
+                signals = [s for s in signals if s['strength'] >= min_strength]
+                
+                for signal in signals:
+                    timeline_data.append({
+                        'Time': time_point.strftime("%H:%M"),
+                        'Symbol': symbol,
+                        'Signal': signal['type'],
+                        'Strength': signal['strength'],
+                        'Reason': signal['reason']
+                    })
+            
+            # Next time point
+            time_point += timedelta(minutes=15)
+        
+        # Display timeline
+        if timeline_data:
+            timeline_df = pd.DataFrame(timeline_data)
+            
+            # Create scatter plot if plotly is available
+            if PLOTLY_AVAILABLE:
+                fig = px.scatter(
+                    timeline_df,
+                    x='Time',
+                    y='Symbol',
+                    color='Signal',
+                    size='Strength',
+                    color_discrete_map={'bullish': 'green', 'bearish': 'red'},
+                    title="Signal Timeline Throughout the Day",
+                    height=400
+                )
+                fig.update_layout(
+                    xaxis_title="Time",
+                    yaxis_title="Symbol",
+                    showlegend=True
+                )
+                st.plotly_chart(fig, use_container_width=True)
+            else:
+                st.info("Plotly not available - cannot display timeline chart")
+            
+            # Show recent signals in a table
+            st.subheader("Recent Signals")
+            recent_signals = sorted(timeline_data, key=lambda x: x['Time'], reverse=True)[:10]
+            recent_df = pd.DataFrame(recent_signals)
+            recent_df['Strength'] = recent_df['Strength'].apply(lambda x: f"{x:.2f}")
+            st.dataframe(recent_df, use_container_width=True)
+        else:
+            st.info("No signals generated in the timeline")
     
     # Auto-refresh
     if auto_refresh:
