@@ -78,8 +78,8 @@ def get_nakshatra(longitude):
 with st.sidebar:
     st.header("Configuration")
     selected_date = st.date_input("Date", datetime.today())
-    lat = st.number_input("Latitude", value=12.9716)  # Bangalore
-    lon = st.number_input("Longitude", value=77.5946)
+    lat = st.number_input("Latitude", value=40.7128)  # New York City
+    lon = st.number_input("Longitude", value=-74.0060)
     
     if st.button("Calculate Exact Positions"):
         with st.spinner("Computing planetary data..."):
@@ -123,5 +123,5 @@ with st.expander("Installation Guide"):
        swe.set_ephe_path("/path/to/ephe/folder")
        ```
     """)
-
+ 
 st.caption(f"Using Swiss Ephemeris {swe.version()} | Data files: {swe.get_ephe_path()}")
