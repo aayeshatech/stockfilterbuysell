@@ -1,18 +1,40 @@
 import streamlit as st
-import yfinance as yf
 import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
 import time
-import plotly.graph_objects as go
-import plotly.express as px
-from plotly.subplots import make_subplots
-import swisseph as swe
 import os
+
+# Try importing optional packages with error handling
+try:
+    import yfinance as yf
+    YFINANCE_AVAILABLE = True
+except ImportError:
+    YFINANCE_AVAILABLE = False
+    st.error("yfinance package not found. Install with: pip install yfinance")
+
+try:
+    import plotly.graph_objects as go
+    import plotly.express as px
+    from plotly.subplots import make_subplots
+    PLOTLY_AVAILABLE = True
+except ImportError:
+    PLOTLY_AVAILABLE = False
+    st.error("plotly package not found. Install with: pip install plotly")
+
+try:
+    import swisseph as swe
+    SWISSEPH_AVAILABLE = True
+except ImportError:
+    SWISSEPH_AVAILABLE = False
+    st.error("pyswisseph package not found. Install with: pip install pyswisseph")
 
 # Initialize Swiss Ephemeris
 def init_swisseph():
     """Initialize Swiss Ephemeris with proper error handling"""
+    if not SWISSEPH_AVAILABLE:
+        return False
+        
     try:
         # Create ephemeris directory if it doesn't exist
         ephe_dir = os.path.join(os.path.dirname(__file__), 'ephe')
@@ -128,7 +150,7 @@ def load_watchlist():
 # Calculate planetary positions
 def calculate_planetary_positions(date_time):
     """Calculate planetary positions for given datetime"""
-    if not st.session_state.swisseph_initialized:
+    if not st.session_state.swisseph_initialized or not SWISSEPH_AVAILABLE:
         return {}
     
     try:
@@ -321,6 +343,14 @@ def generate_trading_signals(aspects, symbol, sector, current_time):
 # Get market data
 def get_market_data(symbol, ticker):
     """Get current market data for a symbol"""
+    if not YFINANCE_AVAILABLE:
+        return {
+            'price': None,
+            'change': None,
+            'change_pct': None,
+            'volume': None
+        }
+        
     try:
         ticker_data = yf.Ticker(ticker)
         hist = ticker_data.history(period="2d")
@@ -496,17 +526,20 @@ def main():
             sentiment_df = pd.DataFrame.from_dict(sector_sentiment, orient='index')
             st.dataframe(sentiment_df, use_container_width=True)
             
-            # Create pie chart
-            fig = px.pie(
-                values=[sum(d['Bullish'] for d in sector_sentiment.values()),
-                       sum(d['Bearish'] for d in sector_sentiment.values()),
-                       sum(d['Neutral'] for d in sector_sentiment.values())],
-                names=['Bullish', 'Bearish', 'Neutral'],
-                title="Overall Market Sentiment",
-                color_discrete_map={'Bullish': 'green', 'Bearish': 'red', 'Neutral': 'gray'}
-            )
-            fig.update_layout(height=300)
-            st.plotly_chart(fig, use_container_width=True)
+            # Create pie chart if plotly is available
+            if PLOTLY_AVAILABLE:
+                fig = px.pie(
+                    values=[sum(d['Bullish'] for d in sector_sentiment.values()),
+                           sum(d['Bearish'] for d in sector_sentiment.values()),
+                           sum(d['Neutral'] for d in sector_sentiment.values())],
+                    names=['Bullish', 'Bearish', 'Neutral'],
+                    title="Overall Market Sentiment",
+                    color_discrete_map={'Bullish': 'green', 'Bearish': 'red', 'Neutral': 'gray'}
+                )
+                fig.update_layout(height=300)
+                st.plotly_chart(fig, use_container_width=True)
+            else:
+                st.info("Plotly not available - cannot display charts")
     
     # Timeline section
     st.header("Intraday Signal Timeline")
@@ -548,23 +581,26 @@ def main():
     if timeline_data:
         timeline_df = pd.DataFrame(timeline_data)
         
-        # Create scatter plot
-        fig = px.scatter(
-            timeline_df,
-            x='Time',
-            y='Symbol',
-            color='Signal',
-            size='Strength',
-            color_discrete_map={'bullish': 'green', 'bearish': 'red'},
-            title="Signal Timeline Throughout the Day",
-            height=400
-        )
-        fig.update_layout(
-            xaxis_title="Time",
-            yaxis_title="Symbol",
-            showlegend=True
-        )
-        st.plotly_chart(fig, use_container_width=True)
+        # Create scatter plot if plotly is available
+        if PLOTLY_AVAILABLE:
+            fig = px.scatter(
+                timeline_df,
+                x='Time',
+                y='Symbol',
+                color='Signal',
+                size='Strength',
+                color_discrete_map={'bullish': 'green', 'bearish': 'red'},
+                title="Signal Timeline Throughout the Day",
+                height=400
+            )
+            fig.update_layout(
+                xaxis_title="Time",
+                yaxis_title="Symbol",
+                showlegend=True
+            )
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.info("Plotly not available - cannot display timeline chart")
         
         # Show recent signals in a table
         st.subheader("Recent Signals")
@@ -581,7 +617,7 @@ def main():
         time_elapsed = time.time() - st.session_state.last_refresh
         
         if time_elapsed >= refresh_interval:
-            st.experimental_rerun()
+            st.rerun()  # Updated from st.experimental_rerun()
         
         # Show refresh countdown
         remaining_time = refresh_interval - time_elapsed
