@@ -1,6 +1,4 @@
-"""
-Global Markets Astro Dashboard with Color-Coded Transit Signals
-"""
+"""Global Markets Astro Dashboard with Color-Coded Transit Signals"""
 
 import streamlit as st
 from datetime import datetime, timedelta
@@ -241,13 +239,14 @@ def main():
                 for i, data in enumerate(market_data):
                     with cols[i % 4]:
                         signal_class = f"signal-{data['signal'].lower().replace('strong_', '').replace('_', '-')}"
+                        price_display = f"{data['price']:,.2f}" if data['price'] > 0 else "N/A"
                         st.markdown(f"""
                         <div class="market-card {signal_class}">
                             <div class="planet-header">
                                 <span style="font-size:1.2em">{data['planet_emoji']}</span>
                                 <h3>{data['symbol']}</h3>
                             </div>
-                            <p><strong>Price:</strong> {data['price']:,.2f if data['price'] > 0 else 'N/A'}</p>
+                            <p><strong>Price:</strong> {price_display}</p>
                             <p><strong style="color:{data['signal_color']}">
                                 {EYE_SYMBOLS[data['signal']]} {data['signal'].replace('_', ' ')}
                             </strong></p>
