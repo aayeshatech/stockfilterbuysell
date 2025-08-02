@@ -13,11 +13,21 @@ EPHE_DIR = os.path.join(os.path.dirname(__file__), 'ephe')
 def ensure_directory_exists(directory):
     """Ensure a directory exists, handling potential errors"""
     try:
+        # Check if path exists
+        if os.path.exists(directory):
+            # If it exists but is not a directory, remove it
+            if not os.path.isdir(directory):
+                st.warning(f"Path {directory} exists but is not a directory. Removing it...")
+                os.remove(directory)
+        
+        # Create directory if it doesn't exist
         if not os.path.exists(directory):
-            os.makedirs(directory, exist_ok=True)
+            os.makedirs(directory)
+            st.success(f"Created directory: {directory}")
+        
         # Verify it's actually a directory
         if not os.path.isdir(directory):
-            st.error(f"Path exists but is not a directory: {directory}")
+            st.error(f"Failed to create directory: {directory}")
             return False
         return True
     except Exception as e:
