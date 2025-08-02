@@ -516,6 +516,11 @@ def format_planetary_position(longitude):
     minute = (degree - int(degree)) * 60
     return f"{int(degree)}°{int(minute)}' {sign}"
 
+# Format recommendation badge
+def format_recommendation_badge(recommendation_class, recommendation):
+    """Format recommendation as HTML badge"""
+    return f"<span class='buy-sell-badge {recommendation_class}'>{recommendation}</span>"
+
 # Main dashboard
 def main():
     st.markdown('<h1 class="main-header">🌌 Planetary Transit Trading Dashboard</h1>', unsafe_allow_html=True)
@@ -631,8 +636,10 @@ def main():
                 else f"<span class='price-down'>{x:.2f}%</span>" if x is not None and x < 0 
                 else "N/A"
             )
+            
+            # Format recommendation badges
             signal_df['Recommendation'] = signal_df.apply(
-                lambda row: f"<span class='buy-sell-badge {row[\"Recommendation Class\"]}'>{row['Recommendation']}</span>", 
+                lambda row: format_recommendation_badge(row['Recommendation Class'], row['Recommendation']), 
                 axis=1
             )
             
@@ -751,7 +758,7 @@ def main():
                 st.markdown(f"**Current Price:** {symbol_data['Price']}")
                 st.markdown(f"**Change:** {symbol_data['Change %']}")
                 st.markdown(f"**Signal:** <span class='{symbol_data['Signal Class']}'>{symbol_data['Signal']}</span>", unsafe_allow_html=True)
-                st.markdown(f"**Recommendation:** <span class='buy-sell-badge {symbol_data['Recommendation Class']}'>{symbol_data['Recommendation']}</span>", unsafe_allow_html=True)
+                st.markdown(f"**Recommendation:** {format_recommendation_badge(symbol_data['Recommendation Class'], symbol_data['Recommendation'])}", unsafe_allow_html=True)
             
             with col2:
                 st.markdown("### Signal Strength")
