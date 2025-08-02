@@ -51,6 +51,7 @@ def plot_planetary_positions(transits: pd.DataFrame):
                 rotation=90,
                 period=360,
                 tickvals=list(range(0, 360, 30))
+            )
         ),
         radialaxis=dict(visible=False),
         showlegend=True,
