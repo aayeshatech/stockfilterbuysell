@@ -2,19 +2,15 @@
 
 import streamlit as st
 import requests
-from datetime import datetime, timedelta
-import pytz
+from datetime import datetime
 import pandas as pd
 import yfinance as yf
-from concurrent.futures import ThreadPoolExecutor
 import plotly.graph_objects as go
-from typing import Dict, List, Optional
+from typing import Dict, List
 
-# Configure API
+# Configure API - replace with your actual API key
 ASTRONOMICS_API = "https://data.astronomics.ai/almanac/"
-HEADERS = {
-    "Authorization": f"Bearer {st.secrets['astronomics_api_key']}"  # Store in Streamlit secrets
-}
+HEADERS = {"Authorization": "Bearer YOUR_API_KEY"}  # Store in Streamlit secrets
 
 # Default symbols and planet mappings
 DEFAULT_SYMBOLS = [
@@ -182,7 +178,8 @@ def plot_planetary_positions(transits: pd.DataFrame):
                 direction="clockwise",
                 rotation=90,
                 period=360,
-                tickvals=list(range(0, 360, 30)),
+                tickvals=list(range(0, 360, 30))
+            ),
             radialaxis=dict(visible=False)
         ),
         showlegend=True,
@@ -265,8 +262,11 @@ def main():
                             st.metric("Strength", f"{signal['Strength']:.0%}")
                             
                             if live_mode:
-                                price = yf.Ticker(signal["Symbol"]).history(period="1d")["Close"].iloc[-1]
-                                st.write(f"Price: ${price:,.2f}")
+                                try:
+                                    price = yf.Ticker(signal["Symbol"]).history(period="1d")["Close"].iloc[-1]
+                                    st.write(f"Price: ${price:,.2f}")
+                                except:
+                                    st.write("Price unavailable")
     
     with tab3:
         st.subheader("Market Analysis")
