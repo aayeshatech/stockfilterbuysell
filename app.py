@@ -259,6 +259,34 @@ st.markdown("""
         border-radius: 0.25rem;
         font-weight: bold;
     }
+    .transit-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 2rem;
+    }
+    .transit-table th, .transit-table td {
+        border: 1px solid #ddd;
+        padding: 8px;
+        text-align: left;
+    }
+    .transit-table th {
+        background-color: #f2f2f2;
+        font-weight: bold;
+    }
+    .transit-table tr:nth-child(even) {
+        background-color: #f9f9f9;
+    }
+    .transit-table tr:hover {
+        background-color: #f1f1f1;
+    }
+    .bullish-text {
+        color: #2ca02c;
+        font-weight: bold;
+    }
+    .bearish-text {
+        color: #d62728;
+        font-weight: bold;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -725,9 +753,9 @@ def format_recommendation_badge(recommendation_class, recommendation):
     """Format recommendation as HTML badge"""
     return f"<span class='buy-sell-badge {recommendation_class}'>{recommendation}</span>"
 
-# Generate intraday report
-def generate_intraday_report(selected_date, watchlist, sectors, selected_time_slot=None):
-    """Generate intraday astrological report for selected date"""
+# Generate special transit report for Nifty, BankNifty, and Gold
+def generate_special_transit_report(selected_date, watchlist, sectors, selected_time_slot=None):
+    """Generate special transit report for Nifty, BankNifty, and Gold in table format"""
     # Get trading time slots
     time_slots = get_trading_time_slots()
     
@@ -735,8 +763,11 @@ def generate_intraday_report(selected_date, watchlist, sectors, selected_time_sl
     if selected_time_slot:
         time_slots = [selected_time_slot]
     
-    # Generate report for each time slot
-    intraday_report = []
+    # Special symbols
+    special_symbols = ['Nifty', 'BankNifty', 'Gold']
+    
+    # Create report data
+    report_data = []
     
     for start_time_str, end_time_str in time_slots:
         # Parse time strings
@@ -745,201 +776,47 @@ def generate_intraday_report(selected_date, watchlist, sectors, selected_time_sl
         
         # Create datetime objects for the time slot
         start_time = datetime.combine(selected_date, datetime.min.time()) + timedelta(hours=start_hour, minutes=start_minute)
-        end_time = datetime.combine(selected_date, datetime.min.time()) + timedelta(hours=end_hour, minutes=end_minute)
         
         # Calculate planetary positions and aspects for the start of the time slot
         positions = calculate_planetary_positions(start_time)
         aspects = calculate_planetary_aspects(positions)
         
-        # Generate signals for all symbols
-        time_slot_data = {
-            'time_slot': f"{start_time_str} - {end_time_str}",
-            'start_time': start_time,
-            'end_time': end_time,
-            'positions': positions,
-            'aspects': aspects,
-            'symbols': []
-        }
-        
-        # Determine ruling planet for this time slot (simplified)
-        # In a real system, this would be based on the day of the week and time
-        ruling_planets = ['Sun', 'Moon', 'Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn']
-        slot_index = time_slots.index((start_time_str, end_time_str))
-        ruling_planet = ruling_planets[slot_index % len(ruling_planets)]
-        time_slot_data['ruling_planet'] = ruling_planet
-        
-        # Generate signals for each symbol
-        for symbol, ticker in watchlist.items():
+        # Generate signals for each special symbol
+        for symbol in special_symbols:
             sector = sectors.get(symbol, 'Unknown')
-            
-            # Generate signals
             signals = generate_trading_signals(aspects, symbol, sector, start_time)
             
             # Calculate overall signal
             bullish_strength = sum(s['strength'] for s in signals if s['type'] == 'bullish')
             bearish_strength = sum(s['strength'] for s in signals if s['type'] == 'bearish')
             
-            # Determine buy/sell recommendation (only BUY or SELL)
+            # Determine signal
             if bullish_strength > bearish_strength:
-                recommendation = "BUY"
-                recommendation_class = "buy-badge"
+                signal = "Bullish"
+                signal_class = "bullish-text"
             else:
-                recommendation = "SELL"
-                recommendation_class = "sell-badge"
+                signal = "Bearish"
+                signal_class = "bearish-text"
             
-            if bullish_strength > bearish_strength:
-                overall_signal = "🐂 Bullish"
-                signal_class = "signal-bullish"
-            elif bearish_strength > bullish_strength:
-                overall_signal = "🐻 Bearish"
-                signal_class = "signal-bearish"
-            else:
-                overall_signal = "⚖ Neutral"
-                signal_class = "signal-neutral"
+            # Get the strongest aspect
+            strongest_aspect = ""
+            if signals:
+                strongest_signal = max(signals, key=lambda x: x['strength'])
+                strongest_aspect = strongest_signal['reason']
             
-            time_slot_data['symbols'].append({
-                'Symbol': symbol,
-                'Sector': sector,
-                'Signal': overall_signal,
+            # Add to report data
+            report_data.append({
+                'Time Factor': f"{start_time_str} - {end_time_str}",
+                'Index Name': symbol,
+                'Bullish/Bearish': signal,
+                'Time': start_time_str,
+                'Planetary Aspect': strongest_aspect,
                 'Signal Class': signal_class,
-                'Recommendation': recommendation,
-                'Recommendation Class': recommendation_class,
                 'Bullish Strength': round(bullish_strength, 2),
-                'Bearish Strength': round(bearish_strength, 2),
-                'Recent Signals': ", ".join([s['reason'] for s in signals[:3]]),
-                'Signals': signals,
-                'Transit Details': [s['detail'] for s in signals]
+                'Bearish Strength': round(bearish_strength, 2)
             })
-        
-        intraday_report.append(time_slot_data)
     
-    return intraday_report
-
-# Generate sector analysis for intraday report
-def generate_intraday_sector_analysis(intraday_report):
-    """Generate sector-level analysis for intraday report"""
-    sector_analysis = {}
-    
-    # Initialize sector analysis
-    for time_slot in intraday_report:
-        for symbol_data in time_slot['symbols']:
-            sector = symbol_data['Sector']
-            if sector not in sector_analysis:
-                sector_analysis[sector] = {
-                    'time_slots': {},
-                    'overall_bullish': 0,
-                    'overall_bearish': 0
-                }
-            
-            time_slot_key = time_slot['time_slot']
-            if time_slot_key not in sector_analysis[sector]['time_slots']:
-                sector_analysis[sector]['time_slots'][time_slot_key] = {
-                    'bullish_count': 0,
-                    'bearish_count': 0,
-                    'bullish_strength': 0,
-                    'bearish_strength': 0,
-                    'planetary_effects': []
-                }
-            
-            # Add symbol data to sector analysis
-            if symbol_data['Signal'] == '🐂 Bullish':
-                sector_analysis[sector]['time_slots'][time_slot_key]['bullish_count'] += 1
-                sector_analysis[sector]['time_slots'][time_slot_key]['bullish_strength'] += symbol_data['Bullish Strength']
-                sector_analysis[sector]['overall_bullish'] += 1
-            elif symbol_data['Signal'] == '🐻 Bearish':
-                sector_analysis[sector]['time_slots'][time_slot_key]['bearish_count'] += 1
-                sector_analysis[sector]['time_slots'][time_slot_key]['bearish_strength'] += symbol_data['Bearish Strength']
-                sector_analysis[sector]['overall_bearish'] += 1
-            
-            # Add planetary effects
-            for signal in symbol_data['Signals']:
-                if 'Sector:' in signal['reason']:
-                    sector_analysis[sector]['time_slots'][time_slot_key]['planetary_effects'].append({
-                        'planets': signal['reason'].split(': ')[1],
-                        'type': signal['type'],
-                        'strength': signal['strength']
-                    })
-    
-    return sector_analysis
-
-# Generate special report for Nifty, BankNifty, and Gold
-def generate_special_report(selected_date, watchlist, sectors):
-    """Generate special report for Nifty, BankNifty, and Gold"""
-    # Get trading time slots
-    time_slots = get_trading_time_slots()
-    
-    # Special symbols
-    special_symbols = ['Nifty', 'BankNifty', 'Gold']
-    
-    # Generate report for each time slot
-    special_report = {}
-    
-    for symbol in special_symbols:
-        special_report[symbol] = {
-            'time_slots': [],
-            'overall_signal': None,
-            'overall_recommendation': None,
-            'sector': sectors.get(symbol, 'Unknown')
-        }
-        
-        # Track overall sentiment
-        total_bullish = 0
-        total_bearish = 0
-        
-        for start_time_str, end_time_str in time_slots:
-            # Parse time strings
-            start_hour, start_minute = map(int, start_time_str.split(':'))
-            end_hour, end_minute = map(int, end_time_str.split(':'))
-            
-            # Create datetime objects for the time slot
-            start_time = datetime.combine(selected_date, datetime.min.time()) + timedelta(hours=start_hour, minutes=start_minute)
-            end_time = datetime.combine(selected_date, datetime.min.time()) + timedelta(hours=end_hour, minutes=end_minute)
-            
-            # Calculate planetary positions and aspects for the start of the time slot
-            positions = calculate_planetary_positions(start_time)
-            aspects = calculate_planetary_aspects(positions)
-            
-            # Generate signals for the symbol
-            sector = sectors.get(symbol, 'Unknown')
-            signals = generate_trading_signals(aspects, symbol, sector, start_time)
-            
-            # Calculate overall signal
-            bullish_strength = sum(s['strength'] for s in signals if s['type'] == 'bullish')
-            bearish_strength = sum(s['strength'] for s in signals if s['type'] == 'bearish')
-            
-            # Determine buy/sell recommendation (only BUY or SELL)
-            if bullish_strength > bearish_strength:
-                recommendation = "BUY"
-                recommendation_class = "buy-badge"
-                signal = "🐂 Bullish"
-                total_bullish += 1
-            else:
-                recommendation = "SELL"
-                recommendation_class = "sell-badge"
-                signal = "🐻 Bearish"
-                total_bearish += 1
-            
-            # Add time slot data
-            special_report[symbol]['time_slots'].append({
-                'time_slot': f"{start_time_str} - {end_time_str}",
-                'signal': signal,
-                'recommendation': recommendation,
-                'recommendation_class': recommendation_class,
-                'bullish_strength': round(bullish_strength, 2),
-                'bearish_strength': round(bearish_strength, 2),
-                'signals': signals,
-                'transit_details': [s['detail'] for s in signals]
-            })
-        
-        # Determine overall signal for the day
-        if total_bullish > total_bearish:
-            special_report[symbol]['overall_signal'] = "🐂 Bullish"
-            special_report[symbol]['overall_recommendation'] = "BUY"
-        else:
-            special_report[symbol]['overall_signal'] = "🐻 Bearish"
-            special_report[symbol]['overall_recommendation'] = "SELL"
-    
-    return special_report
+    return report_data
 
 # Main dashboard
 def main():
@@ -987,8 +864,6 @@ def main():
         st.session_state.report_generated = False
     if 'selected_date' not in st.session_state:
         st.session_state.selected_date = datetime.now().date()
-    if 'expanded_sectors' not in st.session_state:
-        st.session_state.expanded_sectors = set()
     
     # Sidebar controls
     st.sidebar.header("Dashboard Controls")
@@ -1008,20 +883,6 @@ def main():
         start_time_str, end_time_str = selected_time_slot_option.split(" - ")
         selected_time_slot = (start_time_str, end_time_str)
     
-    # Sector filter
-    all_sectors = list(set(sectors.values()))
-    selected_sectors = st.sidebar.multiselect(
-        "Filter by Sector",
-        options=all_sectors,
-        default=all_sectors
-    )
-    
-    # Signal strength filter
-    min_strength = st.sidebar.slider("Minimum Signal Strength", 0.1, 1.0, 0.5)
-    
-    # Symbol search
-    search_term = st.sidebar.text_input("Search Symbol", "")
-    
     # Generate report if date is selected
     if st.session_state.report_generated:
         selected_date = st.session_state.selected_date
@@ -1030,488 +891,221 @@ def main():
         report_time = datetime.now(pytz.timezone('Asia/Kolkata')).strftime("%H:%M:%S")
         st.markdown(f'<div class="report-header">📊 Daily Astrological Report for {selected_date.strftime("%B %d, %Y")} (Generated at {report_time})</div>', unsafe_allow_html=True)
         
-        # Generate intraday report
-        with st.spinner("Generating intraday astrological report..."):
-            intraday_report = generate_intraday_report(selected_date, watchlist, sectors, selected_time_slot)
-        
-        # Generate sector analysis
-        sector_analysis = generate_intraday_sector_analysis(intraday_report)
-        
-        # Generate special report
-        with st.spinner("Generating special report..."):
-            special_report = generate_special_report(selected_date, watchlist, sectors)
+        # Generate special transit report
+        with st.spinner("Generating special transit report..."):
+            special_report_data = generate_special_transit_report(selected_date, watchlist, sectors, selected_time_slot)
         
         # Create tabs for different views
-        tab1, tab2 = st.tabs(["Full Market Report", "Special Report (Nifty, BankNifty, Gold)"])
+        tab1, tab2 = st.tabs(["Special Transit Report", "Detailed Analysis"])
         
         with tab1:
-            st.header("Intraday Astrological Analysis")
+            st.header("Special Transit Report: Nifty, BankNifty, Gold")
             
-            # Display time slots
-            for time_slot in intraday_report:
-                time_slot_str = time_slot['time_slot']
-                ruling_planet = time_slot['ruling_planet']
+            # Display the transit report table
+            if special_report_data:
+                # Create DataFrame
+                report_df = pd.DataFrame(special_report_data)
                 
-                # Calculate overall signal for the time slot
-                bullish_count = sum(1 for s in time_slot['symbols'] if s['Signal'] == '🐂 Bullish')
-                bearish_count = sum(1 for s in time_slot['symbols'] if s['Signal'] == '🐻 Bearish')
-                
-                if bullish_count > bearish_count:
-                    overall_signal = "Bullish"
-                    signal_class = "bullish-signal"
-                else:
-                    overall_signal = "Bearish"
-                    signal_class = "bearish-signal"
-                
-                # Display time slot section
-                st.markdown(f"""
-                <div class="time-slot">
-                    <div class="time-slot-header">
-                        <div class="time-slot-title">{time_slot_str} (Ruled by {ruling_planet})</div>
-                        <div class="time-slot-signal {signal_class}">{overall_signal}</div>
-                    </div>
+                # Display table with custom styling
+                st.markdown("""
+                <table class="transit-table">
+                    <thead>
+                        <tr>
+                            <th>Time Factor</th>
+                            <th>Index Name</th>
+                            <th>Bullish/Bearish</th>
+                            <th>Time</th>
+                            <th>Planetary Aspect</th>
+                        </tr>
+                    </thead>
+                    <tbody>
                 """, unsafe_allow_html=True)
                 
-                # Display planetary positions
-                with st.expander(f"Planetary Positions at {time_slot_str.split(' - ')[0]}"):
-                    if time_slot['positions']:
-                        pos_data = []
-                        for planet, longitude in time_slot['positions'].items():
-                            pos_data.append({
-                                'Planet': planet,
-                                'Position': format_planetary_position(longitude),
-                                'Longitude': round(longitude, 2)
-                            })
-                        
-                        pos_df = pd.DataFrame(pos_data)
-                        st.dataframe(pos_df, use_container_width=True)
-                    else:
-                        st.info("Planetary positions not available")
+                for _, row in report_df.iterrows():
+                    st.markdown(f"""
+                    <tr>
+                        <td>{row['Time Factor']}</td>
+                        <td><strong>{row['Index Name']}</strong></td>
+                        <td class="{row['Signal Class']}">{row['Bullish/Bearish']}</td>
+                        <td>{row['Time']}</td>
+                        <td>{row['Planetary Aspect']}</td>
+                    </tr>
+                    """, unsafe_allow_html=True)
                 
-                # Display sector analysis for this time slot
-                st.subheader(f"Sector Analysis - {time_slot_str}")
+                st.markdown("""
+                    </tbody>
+                </table>
+                """, unsafe_allow_html=True)
                 
-                # Create columns for sectors
-                sector_cols = st.columns(3)
+                # Show signal strength summary
+                st.subheader("Signal Strength Summary")
                 
-                col_idx = 0
-                for sector, data in sector_analysis.items():
-                    if sector not in selected_sectors:
-                        continue
+                # Group by index name
+                for symbol in ['Nifty', 'BankNifty', 'Gold']:
+                    symbol_data = report_df[report_df['Index Name'] == symbol]
                     
-                    if time_slot_str in data['time_slots']:
-                        slot_data = data['time_slots'][time_slot_str]
+                    if not symbol_data.empty:
+                        avg_bullish = symbol_data['Bullish Strength'].mean()
+                        avg_bearish = symbol_data['Bearish Strength'].mean()
                         
-                        # Determine sector signal
-                        if slot_data['bullish_strength'] > slot_data['bearish_strength']:
-                            sector_signal = "Bullish"
+                        # Determine overall signal
+                        if avg_bullish > avg_bearish:
+                            overall_signal = "Bullish"
                             signal_class = "bullish-signal"
                         else:
-                            sector_signal = "Bearish"
+                            overall_signal = "Bearish"
                             signal_class = "bearish-signal"
                         
-                        with sector_cols[col_idx % 3]:
-                            # Create sector card
-                            st.markdown(f"""
-                            <div class="sector-card">
-                                <div class="sector-header">
-                                    <div class="sector-name">{sector}</div>
-                                    <div class="sector-signal {signal_class}">{sector_signal}</div>
-                                </div>
-                                <div>
-                                    <strong>Bullish:</strong> {slot_data['bullish_count']} | 
-                                    <strong>Bearish:</strong> {slot_data['bearish_count']}
-                                </div>
+                        st.markdown(f"""
+                        <div class="special-report-card">
+                            <div class="special-report-header">
+                                <div class="special-report-title">{symbol}</div>
+                                <div class="special-report-signal {signal_class}">{overall_signal}</div>
                             </div>
-                            """, unsafe_allow_html=True)
-                            
-                            # Show strength meters
-                            st.markdown("<strong>Bullish Strength:</strong>", unsafe_allow_html=True)
-                            st.markdown(f"""
-                            <div class="strength-meter">
-                                <div class="strength-fill strength-bullish" style="width: {min(slot_data['bullish_strength'] * 100, 100)}%"></div>
+                            <div>
+                                <strong>Avg Bullish Strength:</strong> {avg_bullish:.2f} | 
+                                <strong>Avg Bearish Strength:</strong> {avg_bearish:.2f}
                             </div>
-                            """, unsafe_allow_html=True)
-                            st.markdown(f"{slot_data['bullish_strength']:.2f}")
-                            
-                            st.markdown("<strong>Bearish Strength:</strong>", unsafe_allow_html=True)
-                            st.markdown(f"""
-                            <div class="strength-meter">
-                                <div class="strength-fill strength-bearish" style="width: {min(slot_data['bearish_strength'] * 100, 100)}%"></div>
-                            </div>
-                            """, unsafe_allow_html=True)
-                            st.markdown(f"{slot_data['bearish_strength']:.2f}")
-                            
-                            # Show planetary effects
-                            if slot_data['planetary_effects']:
-                                st.markdown("<strong>Planetary Effects:</strong>", unsafe_allow_html=True)
-                                for effect in slot_data['planetary_effects']:
-                                    effect_color = "green" if effect['type'] == 'bullish' else "red"
-                                    st.markdown(f"""
-                                    <div class="planetary-effect">
-                                        <span style="color: {effect_color}">{effect['planets']}</span> 
-                                        (Strength: {effect['strength']:.2f})
-                                    </div>
-                                    """, unsafe_allow_html=True)
-                            
-                            # Toggle button for sector details
-                            if st.button(f"Show Stocks in {sector}", key=f"toggle_{sector}_{time_slot_str}"):
-                                if f"{sector}_{time_slot_str}" in st.session_state.expanded_sectors:
-                                    st.session_state.expanded_sectors.remove(f"{sector}_{time_slot_str}")
-                                else:
-                                    st.session_state.expanded_sectors.add(f"{sector}_{time_slot_str}")
-                                st.rerun()
-                            
-                            # Show stocks if sector is expanded
-                            if f"{sector}_{time_slot_str}" in st.session_state.expanded_sectors:
-                                st.markdown(f"<div class='stock-list'>", unsafe_allow_html=True)
-                                
-                                # Get stocks in this sector for this time slot
-                                sector_symbols = [s for s in time_slot['symbols'] if s['Sector'] == sector]
-                                
-                                # Show bullish stocks
-                                bullish_stocks = [s for s in sector_symbols if s['Signal'] == '🐂 Bullish']
-                                if bullish_stocks:
-                                    st.markdown("<div style='color: green; font-weight: bold;'>Bullish Stocks:</div>", unsafe_allow_html=True)
-                                    for stock in bullish_stocks:
-                                        st.markdown(f"""
-                                        <div class="stock-item">
-                                            <div class="stock-name">{stock['Symbol']}</div>
-                                            <div class="stock-signal" style="color: green;">BUY</div>
-                                        </div>
-                                        """, unsafe_allow_html=True)
-                                
-                                # Show bearish stocks
-                                bearish_stocks = [s for s in sector_symbols if s['Signal'] == '🐻 Bearish']
-                                if bearish_stocks:
-                                    st.markdown("<div style='color: red; font-weight: bold;'>Bearish Stocks:</div>", unsafe_allow_html=True)
-                                    for stock in bearish_stocks:
-                                        st.markdown(f"""
-                                        <div class="stock-item">
-                                            <div class="stock-name">{stock['Symbol']}</div>
-                                            <div class="stock-signal" style="color: red;">SELL</div>
-                                        </div>
-                                        """, unsafe_allow_html=True)
-                                
-                                st.markdown("</div>", unsafe_allow_html=True)
-                        
-                        col_idx += 1
-                
-                st.markdown('</div>', unsafe_allow_html=True)
-            
-            # Detailed transit information section
-            st.header("Detailed Astrological Analysis")
-            
-            # Create tabs for different views
-            tab1_1, tab1_2, tab1_3 = st.tabs(["Symbol Details", "All Aspects", "Summary"])
-            
-            with tab1_1:
-                st.subheader("Symbol-wise Astrological Analysis")
-                
-                # Symbol selector
-                all_symbols = [s['Symbol'] for time_slot in intraday_report for s in time_slot['symbols']]
-                symbol_options = list(set(all_symbols))
-                
-                if symbol_options:
-                    selected_symbol = st.selectbox("Select Symbol for Detailed Analysis", options=symbol_options)
-                    
-                    if selected_symbol:
-                        # Find all time slots for this symbol
-                        symbol_time_slots = []
-                        for time_slot in intraday_report:
-                            for symbol_data in time_slot['symbols']:
-                                if symbol_data['Symbol'] == selected_symbol:
-                                    symbol_time_slots.append({
-                                        'time_slot': time_slot['time_slot'],
-                                        'data': symbol_data
-                                    })
-                        
-                        # Display symbol details for each time slot
-                        for slot in symbol_time_slots:
-                            st.markdown(f"### {slot['time_slot']}")
-                            
-                            # Display symbol details
-                            col1, col2 = st.columns(2)
-                            
-                            with col1:
-                                st.markdown(f"**Symbol:** {selected_symbol}")
-                                st.markdown(f"**Sector:** {slot['data']['Sector']}")
-                                st.markdown(f"**Signal:** <span class='{slot['data']['Signal Class']}'>{slot['data']['Signal']}</span>", unsafe_allow_html=True)
-                                st.markdown(f"**Recommendation:** {format_recommendation_badge(slot['data']['Recommendation Class'], slot['data']['Recommendation'])}", unsafe_allow_html=True)
-                            
-                            with col2:
-                                st.markdown("### Signal Strength")
-                                st.markdown(f"**Bullish Strength:** {slot['data']['Bullish Strength']}")
-                                st.markdown(f"**Bearish Strength:** {slot['data']['Bearish Strength']}")
-                                
-                                # Signal strength bars
-                                st.progress(slot['data']['Bullish Strength'] / max(slot['data']['Bullish Strength'] + slot['data']['Bearish Strength'], 0.001))
-                                st.markdown(f"<span style='color: green'>Bullish: {slot['data']['Bullish Strength']:.2f}</span>", unsafe_allow_html=True)
-                                st.progress(slot['data']['Bearish Strength'] / max(slot['data']['Bullish Strength'] + slot['data']['Bearish Strength'], 0.001))
-                                st.markdown(f"<span style='color: red'>Bearish: {slot['data']['Bearish Strength']:.2f}</span>", unsafe_allow_html=True)
-                            
-                            # Display transit details
-                            st.markdown("### Active Transits")
-                            if slot['data']['Transit Details']:
-                                for detail in slot['data']['Transit Details']:
-                                    st.markdown(f"<div class='transit-detail'>🔮 {detail}</div>", unsafe_allow_html=True)
-                            else:
-                                st.info("No significant transits affecting this symbol at this time")
-                            
-                            st.markdown("---")
-                else:
-                    st.info("No symbols found for selected filters")
-            
-            with tab1_2:
-                st.subheader("All Planetary Aspects")
-                
-                # Collect all aspects from all time slots
-                all_aspects = []
-                for time_slot in intraday_report:
-                    for aspect in time_slot['aspects']:
-                        aspect['time_slot'] = time_slot['time_slot']
-                        all_aspects.append(aspect)
-                
-                if all_aspects:
-                    # Create detailed aspects table
-                    aspect_details = []
-                    for aspect in all_aspects:
-                        aspect_details.append({
-                            'Time Slot': aspect['time_slot'],
-                            'Planet 1': aspect['planet1'],
-                            'Planet 2': aspect['planet2'],
-                            'Aspect': aspect['aspect'],
-                            'Angle': f"{aspect['angle']:.1f}°",
-                            'Strength': aspect['strength'],
-                            'Orb': f"{aspect['orb_used']:.1f}°",
-                            'Type': 'Bullish' if aspect['strength'] > 0.7 else 'Bearish' if aspect['strength'] < 0.3 else 'Neutral'
-                        })
-                    
-                    aspect_df = pd.DataFrame(aspect_details)
-                    aspect_df = aspect_df.sort_values(['Time Slot', 'Strength'], ascending=[True, False])
-                    
-                    # Color code the type column
-                    def highlight_type(val):
-                        color = 'green' if val == 'Bullish' else 'red' if val == 'Bearish' else 'gray'
-                        return f'color: {color}'
-                    
-                    st.dataframe(
-                        aspect_df.style.applymap(highlight_type, subset=['Type']),
-                        use_container_width=True
-                    )
-                else:
-                    st.info("No significant aspects at this time")
-            
-            with tab1_3:
-                st.subheader("Summary Report")
-                
-                # Overall market analysis
-                st.markdown("### Overall Market Analysis")
-                
-                # Count recommendations across all time slots
-                buy_count = 0
-                sell_count = 0
-                
-                for time_slot in intraday_report:
-                    for symbol_data in time_slot['symbols']:
-                        if symbol_data['Recommendation'] == 'BUY':
-                            buy_count += 1
-                        elif symbol_data['Recommendation'] == 'SELL':
-                            sell_count += 1
-                
-                col1, col2 = st.columns(2)
-                with col1:
-                    st.metric("BUY Signals", buy_count)
-                with col2:
-                    st.metric("SELL Signals", sell_count)
-                
-                # Top bullish and bearish symbols
-                st.markdown("### Top Signals")
-                
-                # Calculate average signal strength for each symbol
-                symbol_strength = {}
-                for time_slot in intraday_report:
-                    for symbol_data in time_slot['symbols']:
-                        symbol = symbol_data['Symbol']
-                        if symbol not in symbol_strength:
-                            symbol_strength[symbol] = {
-                                'bullish': 0,
-                                'bearish': 0,
-                                'sector': symbol_data['Sector']
-                            }
-                        
-                        if symbol_data['Signal'] == '🐂 Bullish':
-                            symbol_strength[symbol]['bullish'] += symbol_data['Bullish Strength']
-                        elif symbol_data['Signal'] == '🐻 Bearish':
-                            symbol_strength[symbol]['bearish'] += symbol_data['Bearish Strength']
-                
-                # Calculate average strengths
-                for symbol in symbol_strength:
-                    total_strength = symbol_strength[symbol]['bullish'] + symbol_strength[symbol]['bearish']
-                    if total_strength > 0:
-                        symbol_strength[symbol]['bullish_avg'] = symbol_strength[symbol]['bullish'] / total_strength
-                        symbol_strength[symbol]['bearish_avg'] = symbol_strength[symbol]['bearish'] / total_strength
-                    else:
-                        symbol_strength[symbol]['bullish_avg'] = 0
-                        symbol_strength[symbol]['bearish_avg'] = 0
-                
-                # Get top bullish and bearish symbols
-                top_bullish = sorted(symbol_strength.items(), key=lambda x: x[1]['bullish_avg'], reverse=True)[:5]
-                top_bearish = sorted(symbol_strength.items(), key=lambda x: x[1]['bearish_avg'], reverse=True)[:5]
-                
-                col1, col2 = st.columns(2)
-                
-                with col1:
-                    st.markdown("#### Top Bullish Signals")
-                    for symbol, data in top_bullish:
-                        st.markdown(f"- **{symbol}** ({data['sector']}) - Avg Strength: {data['bullish_avg']:.2f}")
-                
-                with col2:
-                    st.markdown("#### Top Bearish Signals")
-                    for symbol, data in top_bearish:
-                        st.markdown(f"- **{symbol}** ({data['sector']}) - Avg Strength: {data['bearish_avg']:.2f}")
-                
-                # Sector-wise breakdown
-                st.markdown("### Sector-wise Breakdown")
-                
-                sector_breakdown = {}
-                for sector in selected_sectors:
-                    sector_buy = 0
-                    sector_sell = 0
-                    
-                    for time_slot in intraday_report:
-                        for symbol_data in time_slot['symbols']:
-                            if symbol_data['Sector'] == sector:
-                                if symbol_data['Recommendation'] == 'BUY':
-                                    sector_buy += 1
-                                elif symbol_data['Recommendation'] == 'SELL':
-                                    sector_sell += 1
-                    
-                    if sector_buy > 0 or sector_sell > 0:
-                        sector_breakdown[sector] = {
-                            'BUY': sector_buy,
-                            'SELL': sector_sell,
-                            'Total': sector_buy + sector_sell
-                        }
-                
-                if sector_breakdown:
-                    breakdown_df = pd.DataFrame.from_dict(sector_breakdown, orient='index')
-                    st.dataframe(breakdown_df, use_container_width=True)
+                        </div>
+                        """, unsafe_allow_html=True)
+            else:
+                st.info("No transit data available for the selected date and time slot.")
         
         with tab2:
-            st.header("Special Report: Nifty, BankNifty, Gold")
+            st.header("Detailed Astrological Analysis")
             
-            # Display overall signals
-            st.subheader("Daily Overview")
+            # Display planetary positions
+            st.subheader("Planetary Positions")
             
-            col1, col2, col3 = st.columns(3)
+            # Get the first time slot for planetary positions
+            time_slot = selected_time_slot if selected_time_slot else time_slots[0]
+            start_time_str, end_time_str = time_slot
+            start_hour, start_minute = map(int, start_time_str.split(':'))
+            start_time = datetime.combine(selected_date, datetime.min.time()) + timedelta(hours=start_hour, minutes=start_minute)
             
-            with col1:
-                st.markdown(f"""
-                <div class="special-report-card">
-                    <div class="special-report-header">
-                        <div class="special-report-title">Nifty</div>
-                        <div class="special-report-signal {'bullish-signal' if special_report['Nifty']['overall_signal'] == '🐂 Bullish' else 'bearish-signal'}">
-                            {special_report['Nifty']['overall_signal']}
-                        </div>
-                    </div>
-                    <div>
-                        <strong>Recommendation:</strong> {format_recommendation_badge('buy-badge' if special_report['Nifty']['overall_recommendation'] == 'BUY' else 'sell-badge', special_report['Nifty']['overall_recommendation'])}
-                    </div>
-                    <div>
-                        <strong>Sector:</strong> {special_report['Nifty']['sector']}
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
+            positions = calculate_planetary_positions(start_time)
             
-            with col2:
-                st.markdown(f"""
-                <div class="special-report-card">
-                    <div class="special-report-header">
-                        <div class="special-report-title">BankNifty</div>
-                        <div class="special-report-signal {'bullish-signal' if special_report['BankNifty']['overall_signal'] == '🐂 Bullish' else 'bearish-signal'}">
-                            {special_report['BankNifty']['overall_signal']}
-                        </div>
-                    </div>
-                    <div>
-                        <strong>Recommendation:</strong> {format_recommendation_badge('buy-badge' if special_report['BankNifty']['overall_recommendation'] == 'BUY' else 'sell-badge', special_report['BankNifty']['overall_recommendation'])}
-                    </div>
-                    <div>
-                        <strong>Sector:</strong> {special_report['BankNifty']['sector']}
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
+            if positions:
+                pos_data = []
+                for planet, longitude in positions.items():
+                    pos_data.append({
+                        'Planet': planet,
+                        'Position': format_planetary_position(longitude),
+                        'Longitude': round(longitude, 2)
+                    })
+                
+                pos_df = pd.DataFrame(pos_data)
+                st.dataframe(pos_df, use_container_width=True)
+            else:
+                st.info("Planetary positions not available")
             
-            with col3:
-                st.markdown(f"""
-                <div class="special-report-card">
-                    <div class="special-report-header">
-                        <div class="special-report-title">Gold</div>
-                        <div class="special-report-signal {'bullish-signal' if special_report['Gold']['overall_signal'] == '🐂 Bullish' else 'bearish-signal'}">
-                            {special_report['Gold']['overall_signal']}
-                        </div>
-                    </div>
-                    <div>
-                        <strong>Recommendation:</strong> {format_recommendation_badge('buy-badge' if special_report['Gold']['overall_recommendation'] == 'BUY' else 'sell-badge', special_report['Gold']['overall_recommendation'])}
-                    </div>
-                    <div>
-                        <strong>Sector:</strong> {special_report['Gold']['sector']}
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
+            # Display planetary aspects
+            st.subheader("Planetary Aspects")
             
-            # Detailed time slot analysis
-            st.subheader("Intraday Analysis")
+            aspects = calculate_planetary_aspects(positions)
             
-            # Create tabs for each special symbol
-            special_tabs = st.tabs(["Nifty", "BankNifty", "Gold"])
+            if aspects:
+                # Create detailed aspects table
+                aspect_details = []
+                for aspect in aspects:
+                    aspect_details.append({
+                        'Planet 1': aspect['planet1'],
+                        'Planet 2': aspect['planet2'],
+                        'Aspect': aspect['aspect'],
+                        'Angle': f"{aspect['angle']:.1f}°",
+                        'Strength': aspect['strength'],
+                        'Orb': f"{aspect['orb_used']:.1f}°",
+                        'Type': 'Bullish' if aspect['strength'] > 0.7 else 'Bearish' if aspect['strength'] < 0.3 else 'Neutral'
+                    })
+                
+                aspect_df = pd.DataFrame(aspect_details)
+                aspect_df = aspect_df.sort_values('Strength', ascending=False)
+                
+                # Color code the type column
+                def highlight_type(val):
+                    color = 'green' if val == 'Bullish' else 'red' if val == 'Bearish' else 'gray'
+                    return f'color: {color}'
+                
+                st.dataframe(
+                    aspect_df.style.applymap(highlight_type, subset=['Type']),
+                    use_container_width=True
+                )
+            else:
+                st.info("No significant aspects at this time")
             
-            for i, symbol in enumerate(["Nifty", "BankNifty", "Gold"]):
-                with special_tabs[i]:
-                    st.markdown(f"### {symbol} - Intraday Signals")
+            # Display detailed symbol analysis
+            st.subheader("Detailed Symbol Analysis")
+            
+            # Symbol selector
+            selected_symbol = st.selectbox(
+                "Select Symbol for Detailed Analysis",
+                options=['Nifty', 'BankNifty', 'Gold']
+            )
+            
+            if selected_symbol:
+                # Generate detailed report for the selected symbol
+                detailed_report = []
+                
+                for start_time_str, end_time_str in time_slots:
+                    start_hour, start_minute = map(int, start_time_str.split(':'))
+                    start_time = datetime.combine(selected_date, datetime.min.time()) + timedelta(hours=start_hour, minutes=start_minute)
                     
-                    # Display time slot data
-                    for time_slot_data in special_report[symbol]['time_slots']:
-                        time_slot_str = time_slot_data['time_slot']
-                        
-                        # Display time slot section
-                        st.markdown(f"""
-                        <div class="time-slot">
-                            <div class="time-slot-header">
-                                <div class="time-slot-title">{time_slot_str}</div>
-                                <div class="time-slot-signal {'bullish-signal' if time_slot_data['signal'] == '🐂 Bullish' else 'bearish-signal'}">
-                                    {time_slot_data['signal']}
-                                </div>
-                            </div>
-                        """, unsafe_allow_html=True)
-                        
-                        # Display signal strength
-                        col1, col2 = st.columns(2)
-                        
-                        with col1:
-                            st.markdown("### Signal Strength")
-                            st.markdown(f"**Bullish Strength:** {time_slot_data['bullish_strength']}")
-                            st.markdown(f"**Bearish Strength:** {time_slot_data['bearish_strength']}")
-                            
-                            # Signal strength bars
-                            st.progress(time_slot_data['bullish_strength'] / max(time_slot_data['bullish_strength'] + time_slot_data['bearish_strength'], 0.001))
-                            st.markdown(f"<span style='color: green'>Bullish: {time_slot_data['bullish_strength']:.2f}</span>", unsafe_allow_html=True)
-                            st.progress(time_slot_data['bearish_strength'] / max(time_slot_data['bullish_strength'] + time_slot_data['bearish_strength'], 0.001))
-                            st.markdown(f"<span style='color: red'>Bearish: {time_slot_data['bearish_strength']:.2f}</span>", unsafe_allow_html=True)
-                        
-                        with col2:
-                            st.markdown("### Recommendation")
-                            st.markdown(f"{format_recommendation_badge(time_slot_data['recommendation_class'], time_slot_data['recommendation'])}")
-                        
-                        # Display transit details
-                        st.markdown("### Active Transits")
-                        if time_slot_data['transit_details']:
-                            for detail in time_slot_data['transit_details']:
-                                st.markdown(f"<div class='transit-detail'>🔮 {detail}</div>", unsafe_allow_html=True)
-                        else:
-                            st.info("No significant transits affecting this symbol at this time")
-                        
-                        st.markdown('</div>', unsafe_allow_html=True)
+                    # Calculate planetary positions and aspects
+                    positions = calculate_planetary_positions(start_time)
+                    aspects = calculate_planetary_aspects(positions)
+                    
+                    # Generate signals
+                    sector = sectors.get(selected_symbol, 'Unknown')
+                    signals = generate_trading_signals(aspects, selected_symbol, sector, start_time)
+                    
+                    # Calculate overall signal
+                    bullish_strength = sum(s['strength'] for s in signals if s['type'] == 'bullish')
+                    bearish_strength = sum(s['strength'] for s in signals if s['type'] == 'bearish')
+                    
+                    # Determine signal
+                    if bullish_strength > bearish_strength:
+                        signal = "Bullish"
+                        signal_class = "signal-bullish"
+                    else:
+                        signal = "Bearish"
+                        signal_class = "signal-bearish"
+                    
+                    detailed_report.append({
+                        'Time Slot': f"{start_time_str} - {end_time_str}",
+                        'Signal': signal,
+                        'Signal Class': signal_class,
+                        'Bullish Strength': round(bullish_strength, 2),
+                        'Bearish Strength': round(bearish_strength, 2),
+                        'Signals': signals
+                    })
+                
+                # Display detailed report
+                for slot in detailed_report:
+                    st.markdown(f"### {slot['Time Slot']}")
+                    
+                    col1, col2 = st.columns(2)
+                    
+                    with col1:
+                        st.markdown(f"**Signal:** <span class='{slot['Signal Class']}'>{slot['Signal']}</span>", unsafe_allow_html=True)
+                        st.markdown(f"**Bullish Strength:** {slot['Bullish Strength']}")
+                        st.markdown(f"**Bearish Strength:** {slot['Bearish Strength']}")
+                    
+                    with col2:
+                        st.markdown("### Signal Strength")
+                        st.progress(slot['Bullish Strength'] / max(slot['Bullish Strength'] + slot['Bearish Strength'], 0.001))
+                        st.markdown(f"<span style='color: green'>Bullish: {slot['Bullish Strength']:.2f}</span>", unsafe_allow_html=True)
+                        st.progress(slot['Bearish Strength'] / max(slot['Bullish Strength'] + slot['Bearish Strength'], 0.001))
+                        st.markdown(f"<span style='color: red'>Bearish: {slot['Bearish Strength']:.2f}</span>", unsafe_allow_html=True)
+                    
+                    # Display transit details
+                    st.markdown("### Active Transits")
+                    if slot['Signals']:
+                        for signal in slot['Signals']:
+                            st.markdown(f"<div class='transit-detail'>🔮 {signal['detail']}</div>", unsafe_allow_html=True)
+                    else:
+                        st.info("No significant transits affecting this symbol at this time")
+                    
+                    st.markdown("---")
     else:
         # Show instructions when no report is generated
         st.info("👆 Please select a date and click 'Generate Daily Report' to view the astrological analysis")
