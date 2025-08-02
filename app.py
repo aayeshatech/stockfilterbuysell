@@ -3,92 +3,105 @@ from datetime import datetime
 import pandas as pd
 import os
 import urllib.request
+import zipfile
 import shutil
 
 # Create ephemeris directory if it doesn't exist
 EPHE_DIR = os.path.join(os.path.dirname(__file__), 'ephe')
 os.makedirs(EPHE_DIR, exist_ok=True)
 
-# Define required ephemeris files and their URLs
-EPHE_FILES = {
-    'sepl_18.se1': 'https://www.astro.com/ftp/swisseph/ephe/sepl_18.se1',
-    'semo_18.se1': 'https://www.astro.com/ftp/swisseph/ephe/semo_18.se1',
-    'seas_18.se1': 'https://www.astro.com/ftp/swisseph/ephe/seas_18.se1'
-}
-
 def download_ephemeris_files():
-    """Download required ephemeris files if they don't exist"""
-    missing_files = []
-    
-    # Check which files are missing
-    for filename in EPHE_FILES:
-        filepath = os.path.join(EPHE_DIR, filename)
-        if not os.path.exists(filepath):
-            missing_files.append(filename)
-    
-    if not missing_files:
-        return True
-    
-    # Download missing files
-    st.warning(f"Downloading {len(missing_files)} ephemeris file(s)...")
-    progress_bar = st.progress(0)
-    
-    for i, filename in enumerate(missing_files):
-        url = EPHE_FILES[filename]
-        filepath = os.path.join(EPHE_DIR, filename)
+    """Download required ephemeris files using the zip archive"""
+    try:
+        # URL for the complete ephemeris files zip
+        zip_url = "https://www.astro.com/ftp/swisseph/ephe/sepl_18.se1"
         
-        try:
-            # Show download progress
-            st.write(f"Downloading {filename}...")
+        # We'll try individual files first, then fall back to zip if needed
+        files_to_download = {
+            'sepl_18.se1': 'https://www.astro.com/ftp/swisseph/ephe/sepl_18.se1',
+            'semo_18.se1': 'https://www.astro.com/ftp/swisseph/ephe/semo_18.se1',
+            'seas_18.se1': 'https://www.astro.com/ftp/swisseph/ephe/seas_18.se1'
+        }
+        
+        st.warning("Downloading ephemeris files...")
+        progress_bar = st.progress(0)
+        
+        # Try downloading individual files
+        success = True
+        for i, (filename, url) in enumerate(files_to_download.items()):
+            filepath = os.path.join(EPHE_DIR, filename)
             
-            # Download with progress reporting
-            def report_progress(count, block_size, total_size):
-                percent = int(count * block_size * 100 / total_size)
-                progress_bar.progress(percent)
+            if not os.path.exists(filepath):
+                try:
+                    st.write(f"Downloading {filename}...")
+                    urllib.request.urlretrieve(url, filepath)
+                    st.success(f"✓ {filename} downloaded successfully")
+                except Exception as e:
+                    st.error(f"Failed to download {filename}: {str(e)}")
+                    success = False
             
-            urllib.request.urlretrieve(url, filepath, reporthook=report_progress)
-            st.success(f"✓ {filename} downloaded successfully")
-            
-        except Exception as e:
-            st.error(f"Failed to download {filename}: {str(e)}")
-            return False
-    
-    progress_bar.progress(100)
-    st.success("All ephemeris files downloaded successfully!")
-    return True
+            progress_bar.progress((i + 1) / len(files_to_download))
+        
+        if success:
+            progress_bar.progress(100)
+            st.success("All ephemeris files downloaded successfully!")
+            return True
+        
+        # If individual downloads failed, try the zip method
+        st.warning("Individual downloads failed. Trying alternative method...")
+        zip_path = os.path.join(EPHE_DIR, "sweph.zip")
+        zip_url = "https://www.astro.com/swisseph/download/sweph_1800_2400.zip"
+        
+        st.write("Downloading complete ephemeris archive...")
+        urllib.request.urlretrieve(zip_url, zip_path)
+        
+        st.write("Extracting files...")
+        with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+            zip_ref.extractall(EPHE_DIR)
+        
+        # Clean up zip file
+        os.remove(zip_path)
+        
+        # Move files to the correct location if needed
+        extracted_dir = os.path.join(EPHE_DIR, "ephe")
+        if os.path.exists(extracted_dir):
+            for file in os.listdir(extracted_dir):
+                shutil.move(os.path.join(extracted_dir, file), EPHE_DIR)
+            os.rmdir(extracted_dir)
+        
+        progress_bar.progress(100)
+        st.success("Ephemeris files downloaded and extracted successfully!")
+        return True
+        
+    except Exception as e:
+        st.error(f"Failed to download ephemeris files: {str(e)}")
+        return False
 
-# Try to import swisseph after ensuring files are available
-try:
-    import swisseph as swe
-    # Set ephemeris path
-    swe.set_ephe_path(EPHE_DIR)
-    # Test if it works
-    swe.version()
-except ImportError:
-    st.error("""
-    **Missing Required Package**
-    
-    Please install the required package by adding this to your requirements.txt:
-    ```
-    pyswisseph
-    ```
-    
-    Then redeploy your app.
-    """)
-    st.stop()
-except Exception as e:
-    st.error(f"Swiss Ephemeris initialization failed: {str(e)}")
-    st.info("Attempting to download required ephemeris files...")
-    if not download_ephemeris_files():
-        st.error("Failed to initialize Swiss Ephemeris. Please check the logs.")
-        st.stop()
-    # Try again after downloading
+# Initialize Swiss Ephemeris
+def initialize_swisseph():
+    """Initialize Swiss Ephemeris with proper error handling"""
     try:
         import swisseph as swe
-        swe.set_ephe_path(EPHE_DIR)
-        swe.version()
+        # Set ephemeris path as bytes to avoid 'str' object not callable error
+        swe.set_ephe_path(EPHE_DIR.encode('utf-8'))
+        # Test with a simple calculation
+        swe.julday(2023, 1, 1)
+        return swe
     except Exception as e:
-        st.error(f"Still failed after downloading files: {str(e)}")
+        st.error(f"Swiss Ephemeris initialization failed: {str(e)}")
+        return None
+
+# Try to initialize Swiss Ephemeris
+swe = initialize_swisseph()
+if swe is None:
+    st.info("Attempting to download required ephemeris files...")
+    if download_ephemeris_files():
+        swe = initialize_swisseph()
+        if swe is None:
+            st.error("Still failed after downloading files. Please check the logs.")
+            st.stop()
+    else:
+        st.error("Failed to initialize Swiss Ephemeris. Please check the logs.")
         st.stop()
 
 # Configure page
