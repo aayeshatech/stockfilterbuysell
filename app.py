@@ -1,8 +1,5 @@
 """Astro-Trading Dashboard with Real-time Planetary Data"""
 
-# First install required packages:
-# pip install streamlit requests pandas yfinance plotly
-
 import streamlit as st
 import requests
 from datetime import datetime
