@@ -3,50 +3,11 @@ import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
 import time
-import os
 import math
 from typing import Dict, Optional, List
 import pytz
 import requests
 from bs4 import BeautifulSoup
-
-# Try importing optional packages
-try:
-    import swisseph as swe
-    SWISSEPH_AVAILABLE = True
-except ImportError:
-    SWISSEPH_AVAILABLE = False
-    
-try:
-    import ephem
-    EHEM_AVAILABLE = True
-except ImportError:
-    EHEM_AVAILABLE = False
-
-# Initialize Swiss Ephemeris if available
-def init_swisseph():
-    """Initialize Swiss Ephemeris with proper error handling"""
-    if not SWISSEPH_AVAILABLE:
-        return False
-        
-    try:
-        # Create ephemeris directory if it doesn't exist
-        ephe_dir = os.path.join(os.path.dirname(__file__), 'ephe')
-        if not os.path.exists(ephe_dir):
-            os.makedirs(ephe_dir)
-        
-        # Set ephemeris path
-        swe.set_ephe_path(ephe_dir.encode('utf-8'))
-        # Test initialization
-        swe.julday(2023, 1, 1)
-        return True
-    except Exception as e:
-        st.error(f"Swiss Ephemeris initialization failed: {str(e)}")
-        return False
-
-# Initialize if not already done
-if 'swisseph_initialized' not in st.session_state:
-    st.session_state.swisseph_initialized = init_swisseph()
 
 # Page configuration
 st.set_page_config(
@@ -327,6 +288,17 @@ st.markdown("""
         font-style: italic;
         margin-top: 0.5rem;
     }
+    .error-message {
+        color: #d62728;
+        font-weight: bold;
+        margin: 1rem 0;
+    }
+    .loading-spinner {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100px;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -353,8 +325,7 @@ def fetch_planetary_data_from_website(date):
             # Parse the HTML content
             soup = BeautifulSoup(response.text, 'html.parser')
             
-            # Extract planetary positions (this will depend on the actual structure of the website)
-            # This is a generic approach - you may need to adjust based on the actual HTML structure
+            # Extract planetary positions
             planetary_data = {}
             
             # Look for tables containing planetary data
@@ -378,35 +349,51 @@ def fetch_planetary_data_from_website(date):
                             motion = cells[2].text.strip() if len(cells) > 2 else ""
                             nakshatra = cells[3].text.strip() if len(cells) > 3 else ""
                             pada = cells[4].text.strip() if len(cells) > 4 else ""
+                            pos_in_zodiac = cells[5].text.strip() if len(cells) > 5 else ""
+                            declination = cells[6].text.strip() if len(cells) > 6 else ""
+                            
+                            # Extract sign lord, star lord, sub lord if available
+                            sign_lord = cells[7].text.strip() if len(cells) > 7 else ""
+                            star_lord = cells[8].text.strip() if len(cells) > 8 else ""
+                            sub_lord = cells[9].text.strip() if len(cells) > 9 else ""
                             
                             # Store the data
                             planetary_data[planet] = {
                                 'zodiac': zodiac,
                                 'motion': motion,
                                 'nakshatra': nakshatra,
-                                'pada': pada
+                                'pada': pada,
+                                'pos_in_zodiac': pos_in_zodiac,
+                                'declination': declination,
+                                'sign_lord': sign_lord,
+                                'star_lord': star_lord,
+                                'sub_lord': sub_lord
                             }
             
             # Extract planetary aspects if available
             aspects = []
-            aspect_tables = soup.find_all('table', class_='aspect-table')  # Adjust class as needed
+            aspect_tables = soup.find_all('table', class_='aspect-table')
             
             for table in aspect_tables:
                 rows = table.find_all('tr')[1:]  # Skip header row
                 
                 for row in rows:
                     cells = row.find_all('td')
-                    if len(cells) >= 3:
+                    if len(cells) >= 4:
                         planet1 = cells[0].text.strip()
                         planet2 = cells[1].text.strip()
                         aspect_type = cells[2].text.strip()
-                        strength = float(cells[3].text.strip()) if len(cells) > 3 else 0.5
+                        strength = float(cells[3].text.strip()) if len(cells) > 3 and cells[3].text.strip() else 0.5
+                        angle = float(cells[4].text.strip()) if len(cells) > 4 and cells[4].text.strip() else 0.0
+                        orb = float(cells[5].text.strip()) if len(cells) > 5 and cells[5].text.strip() else 0.0
                         
                         aspects.append({
                             'planet1': planet1,
                             'planet2': planet2,
                             'aspect': aspect_type,
-                            'strength': strength
+                            'strength': strength,
+                            'angle': angle,
+                            'orb_used': orb
                         })
             
             return {
@@ -415,12 +402,130 @@ def fetch_planetary_data_from_website(date):
                 'source': 'astronomics.ai'
             }
         else:
-            st.warning(f"Failed to fetch data from astronomics.ai. Status code: {response.status_code}")
+            st.error(f"Failed to fetch data from astronomics.ai. Status code: {response.status_code}")
             return None
             
     except Exception as e:
-        st.warning(f"Error fetching data from astronomics.ai: {str(e)}")
+        st.error(f"Error fetching data from astronomics.ai: {str(e)}")
         return None
+
+# Function to fetch intraday planetary data for specific times
+def fetch_intraday_planetary_data(date, time_slots):
+    """
+    Fetch intraday planetary data for specific time slots on a given date
+    Returns a dictionary with time slots as keys and planetary data as values
+    """
+    intraday_data = {}
+    
+    for start_time_str, end_time_str in time_slots:
+        # Parse time strings
+        start_hour, start_minute = map(int, start_time_str.split(':'))
+        
+        # Create datetime objects for the time slot
+        start_time = datetime.combine(date, datetime.min.time()) + timedelta(hours=start_hour, minutes=start_minute)
+        
+        # Format the datetime for the URL
+        datetime_str = start_time.strftime("%Y-%m-%dT%H:%M:%S")
+        url = f"https://data.astronomics.ai/almanac/{datetime_str}"
+        
+        try:
+            # Send a request to the website
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+            }
+            
+            response = requests.get(url, headers=headers, timeout=10)
+            
+            # Check if the request was successful
+            if response.status_code == 200:
+                # Parse the HTML content
+                soup = BeautifulSoup(response.text, 'html.parser')
+                
+                # Extract planetary positions
+                planetary_data = {}
+                
+                # Look for tables containing planetary data
+                tables = soup.find_all('table')
+                
+                for table in tables:
+                    # Check if this table contains planetary data
+                    headers = [th.text.strip() for th in table.find_all('th')]
+                    
+                    if 'Planet' in headers and 'Zodiac' in headers:
+                        # Extract rows
+                        rows = table.find_all('tr')[1:]  # Skip header row
+                        
+                        for row in rows:
+                            cells = row.find_all('td')
+                            if len(cells) >= 2:
+                                planet = cells[0].text.strip()
+                                zodiac = cells[1].text.strip()
+                                
+                                # Extract additional data if available
+                                motion = cells[2].text.strip() if len(cells) > 2 else ""
+                                nakshatra = cells[3].text.strip() if len(cells) > 3 else ""
+                                pada = cells[4].text.strip() if len(cells) > 4 else ""
+                                pos_in_zodiac = cells[5].text.strip() if len(cells) > 5 else ""
+                                declination = cells[6].text.strip() if len(cells) > 6 else ""
+                                
+                                # Extract sign lord, star lord, sub lord if available
+                                sign_lord = cells[7].text.strip() if len(cells) > 7 else ""
+                                star_lord = cells[8].text.strip() if len(cells) > 8 else ""
+                                sub_lord = cells[9].text.strip() if len(cells) > 9 else ""
+                                
+                                # Store the data
+                                planetary_data[planet] = {
+                                    'zodiac': zodiac,
+                                    'motion': motion,
+                                    'nakshatra': nakshatra,
+                                    'pada': pada,
+                                    'pos_in_zodiac': pos_in_zodiac,
+                                    'declination': declination,
+                                    'sign_lord': sign_lord,
+                                    'star_lord': star_lord,
+                                    'sub_lord': sub_lord
+                                }
+                
+                # Extract planetary aspects if available
+                aspects = []
+                aspect_tables = soup.find_all('table', class_='aspect-table')
+                
+                for table in aspect_tables:
+                    rows = table.find_all('tr')[1:]  # Skip header row
+                    
+                    for row in rows:
+                        cells = row.find_all('td')
+                        if len(cells) >= 4:
+                            planet1 = cells[0].text.strip()
+                            planet2 = cells[1].text.strip()
+                            aspect_type = cells[2].text.strip()
+                            strength = float(cells[3].text.strip()) if len(cells) > 3 and cells[3].text.strip() else 0.5
+                            angle = float(cells[4].text.strip()) if len(cells) > 4 and cells[4].text.strip() else 0.0
+                            orb = float(cells[5].text.strip()) if len(cells) > 5 and cells[5].text.strip() else 0.0
+                            
+                            aspects.append({
+                                'planet1': planet1,
+                                'planet2': planet2,
+                                'aspect': aspect_type,
+                                'strength': strength,
+                                'angle': angle,
+                                'orb_used': orb
+                            })
+                
+                intraday_data[start_time_str] = {
+                    'planetary_positions': planetary_data,
+                    'aspects': aspects,
+                    'source': 'astronomics.ai'
+                }
+            else:
+                st.error(f"Failed to fetch data for {start_time_str}. Status code: {response.status_code}")
+                intraday_data[start_time_str] = None
+                
+        except Exception as e:
+            st.error(f"Error fetching data for {start_time_str}: {str(e)}")
+            intraday_data[start_time_str] = None
+    
+    return intraday_data
 
 # Load watchlist
 def load_watchlist():
@@ -518,167 +623,6 @@ def get_trading_time_slots():
         ("13:15", "14:15"),
         ("14:15", "15:30")
     ]
-
-# Get zodiac sign name
-def get_zodiac_sign(longitude):
-    """Get zodiac sign from longitude"""
-    signs = ["Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo", 
-             "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces"]
-    return signs[int(longitude / 30)]
-
-# Get nakshatra name
-def get_nakshatra(longitude):
-    """Get nakshatra from longitude"""
-    nakshatras = ["Ashwini", "Bharani", "Krittika", "Rohini", "Mrigashira", "Ardra",
-                  "Punarvasu", "Pushya", "Ashlesha", "Magha", "Purva Phalguni", "Uttara Phalguni",
-                  "Hasta", "Chitra", "Swati", "Vishakha", "Anuradha", "Jyeshtha",
-                  "Mula", "Purva Ashadha", "Uttara Ashadha", "Uttara Bhadrapada", "Revati", "Shatabhisha", "Dhanishta", "Shravana"]
-    return nakshatras[int(longitude / (360/27))]
-
-# Calculate planetary positions using Swiss Ephemeris with detailed information
-def calculate_planetary_positions_detailed(date_time):
-    """Calculate detailed planetary positions using Swiss Ephemeris"""
-    if not st.session_state.swisseph_initialized or not SWISSEPH_AVAILABLE:
-        return {}
-    
-    try:
-        # Convert to Julian day
-        jd = swe.julday(
-            date_time.year, date_time.month, date_time.day,
-            date_time.hour + date_time.minute/60.0 + date_time.second/3600.0
-        )
-        
-        planets = {
-            'Sun': swe.SUN,
-            'Moon': swe.MOON,
-            'Mercury': swe.MERCURY,
-            'Venus': swe.VENUS,
-            'Mars': swe.MARS,
-            'Jupiter': swe.JUPITER,
-            'Saturn': swe.SATURN,
-            'Rahu': swe.MEAN_NODE,
-            'Ketu': swe.TRUE_NODE
-        }
-        
-        positions = {}
-        for name, planet_id in planets.items():
-            # Calculate position
-            pos, ret = swe.calc_ut(jd, planet_id)
-            longitude = pos[0] % 360
-            
-            # Calculate declination
-            declination = swe.declination(pos[0], pos[1])
-            
-            # Get zodiac sign and nakshatra
-            zodiac = get_zodiac_sign(longitude)
-            nakshatra = get_nakshatra(longitude)
-            
-            # Calculate pada (quarter of nakshatra)
-            pada = int((longitude % (360/27)) / (360/108)) + 1
-            
-            # Format position in zodiac
-            deg = int(longitude % 30)
-            min_val = int((longitude % 30 - deg) * 60)
-            sec = int(((longitude % 30 - deg) * 60 - min_val) * 60)
-            pos_in_zodiac = f"{deg:02d}°{min_val:02d}'{sec:02d}\""
-            
-            # Determine motion (direct or retrograde)
-            motion = "D" if ret >= 0 else "R"
-            
-            # Get sign lord, star lord, sub lord (simplified)
-            sign_lords = {
-                "Aries": "Ma", "Taurus": "Ve", "Gemini": "Me", "Cancer": "Mo",
-                "Leo": "Su", "Virgo": "Me", "Libra": "Ve", "Scorpio": "Ma",
-                "Sagittarius": "Ju", "Capricorn": "Sa", "Aquarius": "Sa", "Pisces": "Ju"
-            }
-            
-            # For star lord and sub lord, we'll use a simplified approach
-            # In a real system, this would be calculated using Vedic astrology methods
-            star_lords = {
-                "Ashwini": "Ke", "Bharani": "Ve", "Krittika": "Su", "Rohini": "Mo", "Mrigashira": "Ma", "Ardra": "Ra",
-                "Punarvasu": "Ju", "Pushya": "Sa", "Ashlesha": "Me", "Magha": "Ke", "Purva Phalguni": "Ve", "Uttara Phalguni": "Su",
-                "Hasta": "Mo", "Chitra": "Ma", "Swati": "Ra", "Vishakha": "Ju", "Anuradha": "Sa", "Jyeshtha": "Me",
-                "Mula": "Ke", "Purva Ashadha": "Ve", "Uttara Ashadha": "Su", "Uttara Bhadrapada": "Sa", "Revati": "Me", 
-                "Shatabhisha": "Ra", "Dhanishta": "Ma", "Shravana": "Mo"
-            }
-            
-            # For sub lord, we'll use a simplified approach based on pada
-            sub_lords = ["Sa", "Ve", "Su", "Mo", "Ma", "Ra", "Ju", "Me", "Ke"]
-            sub_lord = sub_lords[pada % len(sub_lords)]
-            
-            positions[name] = {
-                'longitude': longitude,
-                'declination': declination,
-                'zodiac': zodiac,
-                'nakshatra': nakshatra,
-                'pada': pada,
-                'pos_in_zodiac': pos_in_zodiac,
-                'motion': motion,
-                'sign_lord': sign_lords.get(zodiac, ""),
-                'star_lord': star_lords.get(nakshatra, ""),
-                'sub_lord': sub_lord
-            }
-        
-        return positions
-    except Exception as e:
-        st.error(f"Swiss Ephemeris calculation failed: {str(e)}")
-        return {}
-
-# Calculate planetary aspects
-def calculate_planetary_aspects(positions):
-    """Calculate significant planetary aspects"""
-    aspects = []
-    
-    # Define aspect types and their orbs
-    aspect_types = {
-        'Conjunction': (0, 8),
-        'Opposition': (180, 8),
-        'Trine': (120, 6),
-        'Square': (90, 6),
-        'Sextile': (60, 4)
-    }
-    
-    planet_combinations = [
-        ('Sun', 'Moon'), ('Sun', 'Mercury'), ('Sun', 'Venus'), ('Sun', 'Mars'),
-        ('Sun', 'Jupiter'), ('Sun', 'Saturn'), ('Sun', 'Rahu'), ('Sun', 'Ketu'),
-        ('Moon', 'Mercury'), ('Moon', 'Venus'), ('Moon', 'Mars'), ('Moon', 'Jupiter'),
-        ('Moon', 'Saturn'), ('Moon', 'Rahu'), ('Moon', 'Ketu'),
-        ('Mercury', 'Venus'), ('Mercury', 'Mars'), ('Mercury', 'Jupiter'),
-        ('Mercury', 'Saturn'), ('Mercury', 'Rahu'), ('Mercury', 'Ketu'),
-        ('Venus', 'Mars'), ('Venus', 'Jupiter'), ('Venus', 'Saturn'),
-        ('Venus', 'Rahu'), ('Venus', 'Ketu'),
-        ('Mars', 'Jupiter'), ('Mars', 'Saturn'), ('Mars', 'Rahu'), ('Mars', 'Ketu'),
-        ('Jupiter', 'Saturn'), ('Jupiter', 'Rahu'), ('Jupiter', 'Ketu'),
-        ('Saturn', 'Rahu'), ('Saturn', 'Ketu'),
-        ('Rahu', 'Ketu')
-    ]
-    
-    for planet1, planet2 in planet_combinations:
-        if planet1 in positions and planet2 in positions:
-            pos1 = positions[planet1]['longitude']
-            pos2 = positions[planet2]['longitude']
-            
-            # Calculate angular separation
-            angle = abs(pos1 - pos2)
-            if angle > 180:
-                angle = 360 - angle
-            
-            # Check for aspects
-            for aspect_name, (target_angle, orb) in aspect_types.items():
-                if abs(angle - target_angle) <= orb:
-                    # Calculate aspect strength (1.0 at exact aspect, 0.0 at orb limit)
-                    strength = 1.0 - (abs(angle - target_angle) / orb)
-                    
-                    aspects.append({
-                        'planet1': planet1,
-                        'planet2': planet2,
-                        'aspect': aspect_name,
-                        'angle': angle,
-                        'strength': strength,
-                        'orb_used': abs(angle - target_angle)
-                    })
-    
-    return aspects
 
 # Define special symbol rules for bullish/bearish signals
 def get_special_symbol_rules():
@@ -812,7 +756,7 @@ def generate_special_symbol_signals(aspects, symbol, current_time):
     }
 
 # Generate special transit report for Nifty, BankNifty, and Gold
-def generate_special_transit_report(selected_date, watchlist, sectors, selected_time_slot=None, data_source=None):
+def generate_special_transit_report(selected_date, watchlist, sectors, selected_time_slot=None, intraday_data=None):
     """Generate special transit report for Nifty, BankNifty, and Gold in table format"""
     # Get trading time slots
     time_slots = get_trading_time_slots()
@@ -828,28 +772,29 @@ def generate_special_transit_report(selected_date, watchlist, sectors, selected_
     report_data = []
     
     for start_time_str, end_time_str in time_slots:
-        # Parse time strings
-        start_hour, start_minute = map(int, start_time_str.split(':'))
-        end_hour, end_minute = map(int, end_time_str.split(':'))
-        
-        # Create datetime objects for the time slot
-        start_time = datetime.combine(selected_date, datetime.min.time()) + timedelta(hours=start_hour, minutes=start_minute)
-        
-        # Use data from website if available, otherwise calculate locally
-        if data_source and 'planetary_positions' in data_source and 'aspects' in data_source:
-            positions = data_source['planetary_positions']
-            aspects = data_source['aspects']
-            source = data_source.get('source', 'local')
+        # Get data for this time slot
+        if intraday_data and start_time_str in intraday_data:
+            time_slot_data = intraday_data[start_time_str]
+            if time_slot_data:
+                positions = time_slot_data['planetary_positions']
+                aspects = time_slot_data['aspects']
+                source = time_slot_data.get('source', 'astronomics.ai')
+            else:
+                # Skip this time slot if data is not available
+                continue
         else:
-            # Calculate detailed planetary positions and aspects for the start of the time slot
-            positions = calculate_planetary_positions_detailed(start_time)
-            aspects = calculate_planetary_aspects(positions)
-            source = 'local'
+            # Skip this time slot if data is not available
+            continue
         
         # Generate signals for each special symbol
         for symbol in special_symbols:
             sector = sectors.get(symbol, 'Unknown')
-            signal_data = generate_special_symbol_signals(aspects, symbol, start_time)
+            
+            # Parse the time string to create a datetime object
+            start_hour, start_minute = map(int, start_time_str.split(':'))
+            current_time = datetime.combine(selected_date, datetime.min.time()) + timedelta(hours=start_hour, minutes=start_minute)
+            
+            signal_data = generate_special_symbol_signals(aspects, symbol, current_time)
             
             # Add to report data
             report_data.append({
@@ -866,17 +811,6 @@ def generate_special_transit_report(selected_date, watchlist, sectors, selected_
             })
     
     return report_data
-
-# Format planetary position
-def format_planetary_position(longitude):
-    """Format planetary longitude to zodiac sign and degree"""
-    signs = ["Ari", "Tau", "Gem", "Can", "Leo", "Vir", 
-             "Lib", "Sco", "Sag", "Cap", "Aqu", "Pis"]
-    sign_num = int(longitude / 30)
-    sign = signs[sign_num]
-    degree = longitude % 30
-    minute = (degree - int(degree)) * 60
-    return f"{int(degree)}°{int(minute)}' {sign}"
 
 # Format recommendation badge
 def format_recommendation_badge(recommendation_class, recommendation):
@@ -933,13 +867,6 @@ def main():
     # Sidebar controls
     st.sidebar.header("Dashboard Controls")
     
-    # Data source selection
-    data_source_option = st.sidebar.selectbox(
-        "Select Data Source",
-        options=["Local Calculation", "Astronomics.ai (if available)"],
-        index=0
-    )
-    
     # Time slot selector
     time_slots = get_trading_time_slots()
     time_slot_options = ["All Time Slots"] + [f"{start} - {end}" for start, end in time_slots]
@@ -969,15 +896,19 @@ def main():
         report_time = datetime.now(pytz.timezone('Asia/Kolkata')).strftime("%H:%M:%S")
         st.markdown(f'<div class="report-header">📊 Daily Astrological Report for {selected_date.strftime("%B %d, %Y")} (Generated at {report_time})</div>', unsafe_allow_html=True)
         
-        # Fetch data from website if selected
-        data_source = None
-        if data_source_option == "Astronomics.ai (if available)":
-            with st.spinner("Fetching data from astronomics.ai..."):
-                data_source = fetch_planetary_data_from_website(selected_date)
+        # Fetch intraday planetary data
+        with st.spinner("Fetching intraday planetary data from astronomics.ai..."):
+            intraday_data = fetch_intraday_planetary_data(selected_date, time_slots)
+        
+        # Check if we have data for any time slot
+        if not any(intraday_data.values()):
+            st.error("Failed to fetch data from astronomics.ai for any time slot. Please try again later.")
+            st.session_state.report_generated = False
+            st.rerun()
         
         # Generate special transit report
         with st.spinner("Generating special transit report..."):
-            special_report_data = generate_special_transit_report(selected_date, watchlist, sectors, selected_time_slot, data_source)
+            special_report_data = generate_special_transit_report(selected_date, watchlist, sectors, selected_time_slot, intraday_data)
         
         # Create tabs for different views
         tab1, tab2, tab3 = st.tabs(["Special Transit Report", "Planetary Positions", "Detailed Analysis"])
@@ -1032,7 +963,7 @@ def main():
                 
                 # Show data source
                 if special_report_data:
-                    source = special_report_data[0].get('Data Source', 'local')
+                    source = special_report_data[0].get('Data Source', 'astronomics.ai')
                     st.markdown(f'<div class="data-source">Data source: {source}</div>', unsafe_allow_html=True)
                 
                 # Show signal strength summary
@@ -1078,32 +1009,21 @@ def main():
             # Get the first time slot for planetary positions
             time_slot = selected_time_slot if selected_time_slot else time_slots[0]
             start_time_str, end_time_str = time_slot
-            start_hour, start_minute = map(int, start_time_str.split(':'))
-            start_time = datetime.combine(selected_date, datetime.min.time()) + timedelta(hours=start_hour, minutes=start_minute)
             
-            # Use data from website if available, otherwise calculate locally
-            if data_source and 'planetary_positions' in data_source:
-                positions = data_source['planetary_positions']
-                source = data_source.get('source', 'local')
-                
-                # Convert website data to our format
-                formatted_positions = {}
-                for planet, data in positions.items():
-                    formatted_positions[planet] = {
-                        'zodiac': data.get('zodiac', ''),
-                        'nakshatra': data.get('nakshatra', ''),
-                        'pada': data.get('pada', 1),
-                        'pos_in_zodiac': '00°00\'00"',  # Placeholder
-                        'motion': data.get('motion', 'D'),
-                        'sign_lord': '',  # Placeholder
-                        'star_lord': '',  # Placeholder
-                        'sub_lord': '',  # Placeholder
-                        'declination': 0.0  # Placeholder
-                    }
-                positions = formatted_positions
+            # Get data for this time slot
+            if intraday_data and start_time_str in intraday_data:
+                time_slot_data = intraday_data[start_time_str]
+                if time_slot_data:
+                    positions = time_slot_data['planetary_positions']
+                    source = time_slot_data.get('source', 'astronomics.ai')
+                else:
+                    st.info("Planetary positions not available for this time slot")
+                    positions = {}
+                    source = "N/A"
             else:
-                positions = calculate_planetary_positions_detailed(start_time)
-                source = 'local'
+                st.info("Planetary positions not available for this time slot")
+                positions = {}
+                source = "N/A"
             
             if positions:
                 # Create detailed positions table
@@ -1112,16 +1032,16 @@ def main():
                     pos_data.append({
                         'Planet': planet,
                         'Date': selected_date.strftime("%Y-%m-%d"),
-                        'Time': start_time.strftime("%H:%M:%S"),
-                        'Motion': data['motion'],
-                        'Sign Lord': data['sign_lord'],
-                        'Star Lord': data['star_lord'],
-                        'Sub Lord': data['sub_lord'],
-                        'Zodiac': data['zodiac'],
-                        'Nakshatra': data['nakshatra'],
-                        'Pada': data['pada'],
-                        'Pos in Zodiac': data['pos_in_zodiac'],
-                        'Declination': f"{data['declination']:.2f}"
+                        'Time': start_time_str,
+                        'Motion': data.get('motion', ''),
+                        'Sign Lord': data.get('sign_lord', ''),
+                        'Star Lord': data.get('star_lord', ''),
+                        'Sub Lord': data.get('sub_lord', ''),
+                        'Zodiac': data.get('zodiac', ''),
+                        'Nakshatra': data.get('nakshatra', ''),
+                        'Pada': data.get('pada', ''),
+                        'Pos in Zodiac': data.get('pos_in_zodiac', ''),
+                        'Declination': data.get('declination', '')
                     })
                 
                 pos_df = pd.DataFrame(pos_data)
@@ -1185,30 +1105,21 @@ def main():
             # Get the first time slot for planetary aspects
             time_slot = selected_time_slot if selected_time_slot else time_slots[0]
             start_time_str, end_time_str = time_slot
-            start_hour, start_minute = map(int, start_time_str.split(':'))
-            start_time = datetime.combine(selected_date, datetime.min.time()) + timedelta(hours=start_hour, minutes=start_minute)
             
-            # Use data from website if available, otherwise calculate locally
-            if data_source and 'aspects' in data_source:
-                aspects = data_source['aspects']
-                source = data_source.get('source', 'local')
-                
-                # Convert website data to our format
-                formatted_aspects = []
-                for aspect in aspects:
-                    formatted_aspects.append({
-                        'planet1': aspect['planet1'],
-                        'planet2': aspect['planet2'],
-                        'aspect': aspect['aspect'],
-                        'angle': 0.0,  # Placeholder
-                        'strength': aspect['strength'],
-                        'orb_used': 0.0  # Placeholder
-                    })
-                aspects = formatted_aspects
+            # Get data for this time slot
+            if intraday_data and start_time_str in intraday_data:
+                time_slot_data = intraday_data[start_time_str]
+                if time_slot_data:
+                    aspects = time_slot_data['aspects']
+                    source = time_slot_data.get('source', 'astronomics.ai')
+                else:
+                    st.info("Planetary aspects not available for this time slot")
+                    aspects = []
+                    source = "N/A"
             else:
-                positions = calculate_planetary_positions_detailed(start_time)
-                aspects = calculate_planetary_aspects(positions)
-                source = 'local'
+                st.info("Planetary aspects not available for this time slot")
+                aspects = []
+                source = "N/A"
             
             if aspects:
                 # Create detailed aspects table
@@ -1255,19 +1166,23 @@ def main():
             detailed_report = []
             
             for start_time_str, end_time_str in time_slots:
-                start_hour, start_minute = map(int, start_time_str.split(':'))
-                start_time = datetime.combine(selected_date, datetime.min.time()) + timedelta(hours=start_hour, minutes=start_minute)
-                
-                # Calculate planetary positions and aspects
-                if data_source and 'planetary_positions' in data_source and 'aspects' in data_source:
-                    positions = data_source['planetary_positions']
-                    aspects = data_source['aspects']
+                # Get data for this time slot
+                if intraday_data and start_time_str in intraday_data:
+                    time_slot_data = intraday_data[start_time_str]
+                    if time_slot_data:
+                        positions = time_slot_data['planetary_positions']
+                        aspects = time_slot_data['aspects']
+                    else:
+                        continue
                 else:
-                    positions = calculate_planetary_positions_detailed(start_time)
-                    aspects = calculate_planetary_aspects(positions)
+                    continue
+                
+                # Parse the time string to create a datetime object
+                start_hour, start_minute = map(int, start_time_str.split(':'))
+                current_time = datetime.combine(selected_date, datetime.min.time()) + timedelta(hours=start_hour, minutes=start_minute)
                 
                 # Generate signals
-                signal_data = generate_special_symbol_signals(aspects, analysis_symbol, start_time)
+                signal_data = generate_special_symbol_signals(aspects, analysis_symbol, current_time)
                 
                 detailed_report.append({
                     'Time Slot': f"{start_time_str} - {end_time_str}",
