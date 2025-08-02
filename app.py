@@ -1,11 +1,95 @@
 import streamlit as st
 from datetime import datetime
-import swisseph as swe
 import pandas as pd
 import os
+import urllib.request
+import shutil
 
-# Configure Swiss Ephemeris path
-swe.set_ephe_path(r"C:\Users\a\Downloads\swisseph-master (1)\swisseph-master\ephe")
+# Create ephemeris directory if it doesn't exist
+EPHE_DIR = os.path.join(os.path.dirname(__file__), 'ephe')
+os.makedirs(EPHE_DIR, exist_ok=True)
+
+# Define required ephemeris files and their URLs
+EPHE_FILES = {
+    'sepl_18.se1': 'https://www.astro.com/ftp/swisseph/ephe/sepl_18.se1',
+    'semo_18.se1': 'https://www.astro.com/ftp/swisseph/ephe/semo_18.se1',
+    'seas_18.se1': 'https://www.astro.com/ftp/swisseph/ephe/seas_18.se1'
+}
+
+def download_ephemeris_files():
+    """Download required ephemeris files if they don't exist"""
+    missing_files = []
+    
+    # Check which files are missing
+    for filename in EPHE_FILES:
+        filepath = os.path.join(EPHE_DIR, filename)
+        if not os.path.exists(filepath):
+            missing_files.append(filename)
+    
+    if not missing_files:
+        return True
+    
+    # Download missing files
+    st.warning(f"Downloading {len(missing_files)} ephemeris file(s)...")
+    progress_bar = st.progress(0)
+    
+    for i, filename in enumerate(missing_files):
+        url = EPHE_FILES[filename]
+        filepath = os.path.join(EPHE_DIR, filename)
+        
+        try:
+            # Show download progress
+            st.write(f"Downloading {filename}...")
+            
+            # Download with progress reporting
+            def report_progress(count, block_size, total_size):
+                percent = int(count * block_size * 100 / total_size)
+                progress_bar.progress(percent)
+            
+            urllib.request.urlretrieve(url, filepath, reporthook=report_progress)
+            st.success(f"✓ {filename} downloaded successfully")
+            
+        except Exception as e:
+            st.error(f"Failed to download {filename}: {str(e)}")
+            return False
+    
+    progress_bar.progress(100)
+    st.success("All ephemeris files downloaded successfully!")
+    return True
+
+# Try to import swisseph after ensuring files are available
+try:
+    import swisseph as swe
+    # Set ephemeris path
+    swe.set_ephe_path(EPHE_DIR)
+    # Test if it works
+    swe.version()
+except ImportError:
+    st.error("""
+    **Missing Required Package**
+    
+    Please install the required package by adding this to your requirements.txt:
+    ```
+    pyswisseph
+    ```
+    
+    Then redeploy your app.
+    """)
+    st.stop()
+except Exception as e:
+    st.error(f"Swiss Ephemeris initialization failed: {str(e)}")
+    st.info("Attempting to download required ephemeris files...")
+    if not download_ephemeris_files():
+        st.error("Failed to initialize Swiss Ephemeris. Please check the logs.")
+        st.stop()
+    # Try again after downloading
+    try:
+        import swisseph as swe
+        swe.set_ephe_path(EPHE_DIR)
+        swe.version()
+    except Exception as e:
+        st.error(f"Still failed after downloading files: {str(e)}")
+        st.stop()
 
 # Configure page
 st.set_page_config(page_title="Professional Astro Calculator", layout="wide")
@@ -113,15 +197,23 @@ with st.sidebar:
 # Instructions
 with st.expander("Installation Guide"):
     st.markdown("""
-    1. Install Swiss Ephemeris:
+    ### For Local Installation:
+    1. Install required packages:
        ```bash
-       pip install pyswisseph
+       pip install streamlit pandas pyswisseph
        ```
     2. Download ephemeris files from [Astrodienst](https://www.astro.com/ftp/swisseph/ephe/)
-    3. Set the path in code:
-       ```python
-       swe.set_ephe_path("/path/to/ephe/folder")
+    3. Create an 'ephe' folder in your project directory
+    4. Place the downloaded files in the 'ephe' folder
+    
+    ### For Streamlit Cloud:
+    1. Create a requirements.txt with:
        ```
+       streamlit
+       pandas
+       pyswisseph
+       ```
+    2. The app will automatically download required ephemeris files
     """)
  
 st.caption(f"Using Swiss Ephemeris {swe.version()} | Data files: {swe.get_ephe_path()}")
