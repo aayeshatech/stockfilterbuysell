@@ -8,6 +8,7 @@ from typing import Dict, Optional, List
 import pytz
 import requests
 from bs4 import BeautifulSoup
+import re
 
 # Page configuration
 st.set_page_config(
@@ -292,6 +293,19 @@ st.markdown("""
         color: #d62728;
         font-weight: bold;
         margin: 1rem 0;
+        padding: 1rem;
+        background-color: #f8d7da;
+        border-radius: 0.5rem;
+        border-left: 4px solid #d62728;
+    }
+    .info-message {
+        color: #0c5460;
+        font-weight: bold;
+        margin: 1rem 0;
+        padding: 1rem;
+        background-color: #d1ecf1;
+        border-radius: 0.5rem;
+        border-left: 4px solid #0c5460;
     }
     .loading-spinner {
         display: flex;
@@ -299,10 +313,30 @@ st.markdown("""
         align-items: center;
         height: 100px;
     }
+    .website-access-info {
+        background-color: #fff3cd;
+        border: 1px solid #ffeeba;
+        border-radius: 0.5rem;
+        padding: 1rem;
+        margin-bottom: 1rem;
+    }
+    .website-access-info h3 {
+        margin-top: 0;
+        color: #856404;
+    }
+    .website-access-info p {
+        margin-bottom: 0.5rem;
+    }
+    .website-access-info code {
+        background-color: #f8f9fa;
+        padding: 0.2rem 0.4rem;
+        border-radius: 0.2rem;
+        font-family: monospace;
+    }
 </style>
 """, unsafe_allow_html=True)
 
-# Function to fetch planetary data from the website
+# Function to fetch planetary data from the website with enhanced error handling
 def fetch_planetary_data_from_website(date):
     """
     Fetch planetary data from astronomics.ai for a given date
@@ -313,9 +347,15 @@ def fetch_planetary_data_from_website(date):
         date_str = date.strftime("%Y-%m-%d")
         url = f"https://data.astronomics.ai/almanac/{date_str}"
         
-        # Send a request to the website
+        # Send a request to the website with enhanced headers
         headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.5',
+            'Accept-Encoding': 'gzip, deflate, br',
+            'Connection': 'keep-alive',
+            'Upgrade-Insecure-Requests': '1',
+            'Cache-Control': 'max-age=0'
         }
         
         response = requests.get(url, headers=headers, timeout=10)
@@ -402,12 +442,21 @@ def fetch_planetary_data_from_website(date):
                 'source': 'astronomics.ai'
             }
         else:
-            st.error(f"Failed to fetch data from astronomics.ai. Status code: {response.status_code}")
-            return None
+            return {
+                'error': f"HTTP Error {response.status_code}: Failed to fetch data from astronomics.ai",
+                'status_code': response.status_code
+            }
             
+    except requests.exceptions.RequestException as e:
+        return {
+            'error': f"Request Exception: {str(e)}",
+            'status_code': None
+        }
     except Exception as e:
-        st.error(f"Error fetching data from astronomics.ai: {str(e)}")
-        return None
+        return {
+            'error': f"Error: {str(e)}",
+            'status_code': None
+        }
 
 # Function to fetch intraday planetary data for specific times
 def fetch_intraday_planetary_data(date, time_slots):
@@ -429,9 +478,15 @@ def fetch_intraday_planetary_data(date, time_slots):
         url = f"https://data.astronomics.ai/almanac/{datetime_str}"
         
         try:
-            # Send a request to the website
+            # Send a request to the website with enhanced headers
             headers = {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                'Accept-Language': 'en-US,en;q=0.5',
+                'Accept-Encoding': 'gzip, deflate, br',
+                'Connection': 'keep-alive',
+                'Upgrade-Insecure-Requests': '1',
+                'Cache-Control': 'max-age=0'
             }
             
             response = requests.get(url, headers=headers, timeout=10)
@@ -518,12 +573,21 @@ def fetch_intraday_planetary_data(date, time_slots):
                     'source': 'astronomics.ai'
                 }
             else:
-                st.error(f"Failed to fetch data for {start_time_str}. Status code: {response.status_code}")
-                intraday_data[start_time_str] = None
+                intraday_data[start_time_str] = {
+                    'error': f"HTTP Error {response.status_code}: Failed to fetch data for {start_time_str}",
+                    'status_code': response.status_code
+                }
                 
+        except requests.exceptions.RequestException as e:
+            intraday_data[start_time_str] = {
+                'error': f"Request Exception for {start_time_str}: {str(e)}",
+                'status_code': None
+            }
         except Exception as e:
-            st.error(f"Error fetching data for {start_time_str}: {str(e)}")
-            intraday_data[start_time_str] = None
+            intraday_data[start_time_str] = {
+                'error': f"Error for {start_time_str}: {str(e)}",
+                'status_code': None
+            }
     
     return intraday_data
 
@@ -775,7 +839,7 @@ def generate_special_transit_report(selected_date, watchlist, sectors, selected_
         # Get data for this time slot
         if intraday_data and start_time_str in intraday_data:
             time_slot_data = intraday_data[start_time_str]
-            if time_slot_data:
+            if 'error' not in time_slot_data:
                 positions = time_slot_data['planetary_positions']
                 aspects = time_slot_data['aspects']
                 source = time_slot_data.get('source', 'astronomics.ai')
@@ -825,6 +889,21 @@ def main():
     # Display running time
     current_time = datetime.now(pytz.timezone('Asia/Kolkata')).strftime("%H:%M:%S")
     st.markdown(f'<div class="running-time">Current Time: {current_time}</div>', unsafe_allow_html=True)
+    
+    # Display information about website access
+    st.markdown("""
+    <div class="website-access-info">
+        <h3>📡 Data Source Information</h3>
+        <p>This dashboard fetches planetary data from <a href="https://data.astronomics.ai/almanac/" target="_blank">data.astronomics.ai/almanac/</a>.</p>
+        <p>If you're experiencing issues accessing the data, it might be due to:</p>
+        <ul>
+            <li>Website restrictions or rate limiting</li>
+            <li>Geographical access limitations</li>
+            <li>Temporary website maintenance</li>
+        </ul>
+        <p>The URL format used is: <code>https://data.astronomics.ai/almanac/YYYY-MM-DD</code> for daily data and <code>https://data.astronomics.ai/almanac/YYYY-MM-DDTHH:MM:SS</code> for intraday data.</p>
+    </div>
+    """, unsafe_allow_html=True)
     
     # Load watchlist
     watchlist, sectors = load_watchlist()
@@ -900,9 +979,37 @@ def main():
         with st.spinner("Fetching intraday planetary data from astronomics.ai..."):
             intraday_data = fetch_intraday_planetary_data(selected_date, time_slots)
         
-        # Check if we have data for any time slot
-        if not any(intraday_data.values()):
-            st.error("Failed to fetch data from astronomics.ai for any time slot. Please try again later.")
+        # Check if we have any successful data
+        successful_data = {k: v for k, v in intraday_data.items() if 'error' not in v}
+        
+        if not successful_data:
+            st.error("Failed to fetch data from astronomics.ai for any time slot. Please check the website accessibility and try again later.")
+            
+            # Display detailed error information
+            st.markdown('<div class="error-message">Error Details:</div>', unsafe_allow_html=True)
+            
+            for time_slot, data in intraday_data.items():
+                if 'error' in data:
+                    st.markdown(f"""
+                    <div class="error-message">
+                        <strong>Time Slot:</strong> {time_slot}<br>
+                        <strong>Error:</strong> {data['error']}<br>
+                        <strong>Status Code:</strong> {data['status_code'] if data['status_code'] else 'N/A'}
+                    </div>
+                    """, unsafe_allow_html=True)
+            
+            # Provide troubleshooting suggestions
+            st.markdown("""
+            <div class="info-message">
+                <strong>Troubleshooting Suggestions:</strong><br>
+                1. Check if the website is accessible by visiting: <a href="https://data.astronomics.ai/almanac/" target="_blank">https://data.astronomics.ai/almanac/</a><br>
+                2. Try again later as the website might be temporarily unavailable<br>
+                3. Contact the website administrator if the issue persists<br>
+                4. Check if there are any geographical restrictions accessing the website
+            </div>
+            """, unsafe_allow_html=True)
+            
+            # Don't generate the report if we don't have data
             st.session_state.report_generated = False
             st.rerun()
         
@@ -1013,7 +1120,7 @@ def main():
             # Get data for this time slot
             if intraday_data and start_time_str in intraday_data:
                 time_slot_data = intraday_data[start_time_str]
-                if time_slot_data:
+                if 'error' not in time_slot_data:
                     positions = time_slot_data['planetary_positions']
                     source = time_slot_data.get('source', 'astronomics.ai')
                 else:
@@ -1109,7 +1216,7 @@ def main():
             # Get data for this time slot
             if intraday_data and start_time_str in intraday_data:
                 time_slot_data = intraday_data[start_time_str]
-                if time_slot_data:
+                if 'error' not in time_slot_data:
                     aspects = time_slot_data['aspects']
                     source = time_slot_data.get('source', 'astronomics.ai')
                 else:
@@ -1169,7 +1276,7 @@ def main():
                 # Get data for this time slot
                 if intraday_data and start_time_str in intraday_data:
                     time_slot_data = intraday_data[start_time_str]
-                    if time_slot_data:
+                    if 'error' not in time_slot_data:
                         positions = time_slot_data['planetary_positions']
                         aspects = time_slot_data['aspects']
                     else:
