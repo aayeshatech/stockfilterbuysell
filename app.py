@@ -1,57 +1,67 @@
-"""Astro-Trading Dashboard with Sample Planetary Data"""
+"""Astro-Trading Dashboard with Sample Data"""
 import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
 
 def get_sample_transit_data():
     """Generate sample planetary transit data"""
-    return pd.DataFrame([
-        ["Sun", "00:00:00", "D", "Capricorn", 280, "Uttara Ashadha", 4, 0.0],
-        ["Moon", "00:00:00", "D", "Gemini", 60, "Ardra", 1, 0.0],
-        ["Mars", "00:00:00", "D", "Gemini", 75, "Punarvasu", 1, 0.0],
-        ["Mercury", "00:00:00", "R", "Sagittarius", 240, "Purva Ashadha", 3, 0.0],
-        ["Jupiter", "00:00:00", "D", "Pisces", 350, "Revati", 4, 0.0],
-        ["Venus", "00:00:00", "D", "Capricorn", 290, "Uttara Ashadha", 4, 0.0],
-        ["Saturn", "00:00:00", "D", "Aquarius", 320, "Purva Bhadrapada", 2, 0.0]
-    ], columns=[
-        "Planet", "Time", "Motion", "Zodiac", "Degree", 
-        "Nakshatra", "Pada", "Declination"
-    ])
+    data = {
+        "Planet": ["Sun", "Moon", "Mars", "Mercury", "Jupiter", "Venus", "Saturn"],
+        "Time": ["00:00:00"]*7,
+        "Motion": ["D", "D", "D", "R", "D", "D", "D"],
+        "Zodiac": ["Capricorn", "Gemini", "Gemini", "Sagittarius", "Pisces", "Capricorn", "Aquarius"],
+        "Degree": [280, 60, 75, 240, 350, 290, 320],
+        "Nakshatra": ["Uttara Ashadha", "Ardra", "Punarvasu", "Purva Ashadha", "Revati", "Uttara Ashadha", "Purva Bhadrapada"],
+        "Pada": [4, 1, 1, 3, 4, 4, 2],
+        "Declination": [0.0]*7
+    }
+    return pd.DataFrame(data)
 
-def plot_planetary_positions(transits: pd.DataFrame):
-    """Create polar plot of planetary positions"""
+def create_plot(transits):
+    """Create and configure the polar plot"""
     fig = go.Figure()
     
+    # Add planetary traces
     for _, row in transits.iterrows():
-        fig.add_trace(go.Scatterpolar(
-            r=[row["Degree"]],
-            theta=[row["Zodiac"]],
-            name=row["Planet"],
-            marker=dict(
-                size=20,
-                color="red" if row["Motion"] == "R" else "blue",
-                line=dict(width=2, color="DarkSlateGrey")
-            ),
-            hovertemplate=f"<b>{row['Planet']}</b><br>"
-                        f"Zodiac: {row['Zodiac']}<br>"
-                        f"Degree: {row['Degree']}°<br>"
-                        f"Nakshatra: {row['Nakshatra']} (Pada {row['Pada']})<br>"
-                        f"Motion: {'Retrograde' if row['Motion'] == 'R' else 'Direct'}<extra></extra>"
-        ))
+        fig.add_trace(
+            go.Scatterpolar(
+                r=[row["Degree"]],
+                theta=[row["Zodiac"]],
+                name=row["Planet"],
+                marker=dict(
+                    size=20,
+                    color="red" if row["Motion"] == "R" else "blue",
+                    line=dict(width=2, color="DarkSlateGrey")
+                ),
+                hovertemplate=(
+                    f"<b>{row['Planet']}</b><br>"
+                    f"Zodiac: {row['Zodiac']}<br>"
+                    f"Degree: {row['Degree']}°<br>"
+                    f"Nakshatra: {row['Nakshatra']} (Pada {row['Pada']})<br>"
+                    f"Motion: {'Retrograde' if row['Motion'] == 'R' else 'Direct'}"
+                    "<extra></extra>"
+                )
+            )
+        )
+    
+    # Configure layout in separate steps for clarity
+    polar_config = dict(
+        angularaxis=dict(
+            direction="clockwise",
+            rotation=90,
+            period=360,
+            tickvals=list(range(0, 360, 30))
+        ),
+        radialaxis=dict(visible=False)
+    )
     
     fig.update_layout(
-        polar=dict(
-            angularaxis=dict(
-                direction="clockwise",
-                rotation=90,
-                period=360,
-                tickvals=list(range(0, 360, 30))
-        ),
-        radialaxis=dict(visible=False),
+        polar=polar_config,
         showlegend=True,
         height=500
     )
-    st.plotly_chart(fig, use_container_width=True)
+    
+    return fig
 
 def main():
     st.set_page_config(
@@ -66,7 +76,10 @@ def main():
     transits = get_sample_transit_data()
     
     if not transits.empty:
-        plot_planetary_positions(transits)
+        st.plotly_chart(
+            create_plot(transits), 
+            use_container_width=True
+        )
         st.subheader("Planetary Transit Data")
         st.dataframe(transits, use_container_width=True)
     else:
