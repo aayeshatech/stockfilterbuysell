@@ -1,386 +1,591 @@
 import streamlit as st
-from datetime import datetime
+import yfinance as yf
 import pandas as pd
+import numpy as np
+from datetime import datetime, timedelta
+import time
+import plotly.graph_objects as go
+import plotly.express as px
+from plotly.subplots import make_subplots
+import swisseph as swe
 import os
-import urllib.request
-import zipfile
-import shutil
-import tempfile
-
-# Create ephemeris directory if it doesn't exist
-EPHE_DIR = os.path.join(os.path.dirname(__file__), 'ephe')
-
-def ensure_directory_exists(directory):
-    """Ensure a directory exists, handling potential errors"""
-    try:
-        # Check if path exists
-        if os.path.exists(directory):
-            # If it exists but is not a directory, remove it
-            if not os.path.isdir(directory):
-                st.warning(f"Path {directory} exists but is not a directory. Removing it...")
-                os.remove(directory)
-        
-        # Create directory if it doesn't exist
-        if not os.path.exists(directory):
-            os.makedirs(directory)
-            st.success(f"Created directory: {directory}")
-        
-        # Verify it's actually a directory
-        if not os.path.isdir(directory):
-            st.error(f"Failed to create directory: {directory}")
-            return False
-        return True
-    except Exception as e:
-        st.error(f"Failed to create directory {directory}: {str(e)}")
-        return False
-
-# Ensure the ephemeris directory exists
-if not ensure_directory_exists(EPHE_DIR):
-    st.error("Cannot proceed without ephemeris directory. Please check permissions.")
-    st.stop()
-
-def check_required_files():
-    """Check if required ephemeris files exist"""
-    required_files = ['sepl_18.se1', 'semo_18.se1', 'seas_18.se1']
-    missing_files = []
-    
-    for filename in required_files:
-        filepath = os.path.join(EPHE_DIR, filename)
-        if not os.path.exists(filepath) or os.path.getsize(filepath) < 1000:  # Check if file exists and is not empty
-            missing_files.append(filename)
-    
-    return missing_files
-
-def download_ephemeris_files():
-    """Download required ephemeris files using multiple methods"""
-    missing_files = check_required_files()
-    if not missing_files:
-        return True
-    
-    st.warning(f"Missing ephemeris files: {', '.join(missing_files)}")
-    
-    # Try multiple download sources
-    download_sources = [
-        # Primary source - GitHub raw files
-        {
-            'sepl_18.se1': 'https://github.com/aloistr/swisseph/raw/master/ephe/sepl_18.se1',
-            'semo_18.se1': 'https://github.com/aloistr/swisseph/raw/master/ephe/semo_18.se1',
-            'seas_18.se1': 'https://github.com/aloistr/swisseph/raw/master/ephe/seas_18.se1'
-        },
-        # Alternative source - Swiss Ephemeris official
-        {
-            'sepl_18.se1': 'https://www.astro.com/ftp/swisseph/ephe/sepl_18.se1',
-            'semo_18.se1': 'https://www.astro.com/ftp/swisseph/ephe/semo_18.se1',
-            'seas_18.se1': 'https://www.astro.com/ftp/swisseph/ephe/seas_18.se1'
-        },
-        # Alternative source - Mirror
-        {
-            'sepl_18.se1': 'https://raw.githubusercontent.com/mnabeelp/PySwissEphemeris/master/ephe/sepl_18.se1',
-            'semo_18.se1': 'https://raw.githubusercontent.com/mnabeelp/PySwissEphemeris/master/ephe/semo_18.se1',
-            'seas_18.se1': 'https://raw.githubusercontent.com/mnabeelp/PySwissEphemeris/master/ephe/seas_18.se1'
-        }
-    ]
-    
-    # Try each source
-    for source_num, source in enumerate(download_sources):
-        st.write(f"Trying download source {source_num + 1}...")
-        success = True
-        
-        for filename in missing_files:
-            if filename in source:
-                url = source[filename]
-                filepath = os.path.join(EPHE_DIR, filename)
-                
-                try:
-                    st.write(f"Downloading {filename}...")
-                    urllib.request.urlretrieve(url, filepath)
-                    
-                    # Verify file was downloaded correctly
-                    if os.path.exists(filepath) and os.path.getsize(filepath) > 1000:
-                        st.success(f"✓ {filename} downloaded successfully")
-                    else:
-                        st.error(f"Downloaded file {filename} is invalid")
-                        success = False
-                        
-                except Exception as e:
-                    st.error(f"Failed to download {filename}: {str(e)}")
-                    success = False
-        
-        if success:
-            st.success("All ephemeris files downloaded successfully!")
-            return True
-    
-    # If all sources failed, try the zip method
-    st.warning("Direct downloads failed. Trying with zip archive...")
-    
-    zip_sources = [
-        "https://www.astro.com/swisseph/download/sweph_1800_2400.zip",
-        "https://github.com/aloistr/swisseph/archive/refs/heads/master.zip"
-    ]
-    
-    for zip_url in zip_sources:
-        try:
-            st.write(f"Downloading from {zip_url}...")
-            
-            with tempfile.TemporaryDirectory() as temp_dir:
-                zip_path = os.path.join(temp_dir, "sweph.zip")
-                urllib.request.urlretrieve(zip_url, zip_path)
-                
-                st.write("Extracting files...")
-                with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-                    zip_ref.extractall(temp_dir)
-                
-                # Look for ephemeris files in the extracted content
-                extracted_ephe_dir = None
-                for root, dirs, files in os.walk(temp_dir):
-                    if 'ephe' in dirs:
-                        extracted_ephe_dir = os.path.join(root, 'ephe')
-                        break
-                
-                if extracted_ephe_dir:
-                    # Copy missing files
-                    for filename in missing_files:
-                        src_path = os.path.join(extracted_ephe_dir, filename)
-                        if os.path.exists(src_path):
-                            dst_path = os.path.join(EPHE_DIR, filename)
-                            shutil.copy2(src_path, dst_path)
-                            st.success(f"✓ {filename} extracted successfully")
-                        else:
-                            st.error(f"File {filename} not found in archive")
-                    
-                    # Check if all files were extracted
-                    if not check_required_files():
-                        st.success("All ephemeris files extracted successfully!")
-                        return True
-                else:
-                    st.error("Could not find ephemeris files in the downloaded archive.")
-                    
-        except Exception as e:
-            st.error(f"Failed to download or extract {zip_url}: {str(e)}")
-    
-    return False
-
-def manual_upload_files():
-    """Allow user to manually upload ephemeris files"""
-    st.write("### Manual Upload")
-    st.write("Please upload the required ephemeris files:")
-    
-    required_files = ['sepl_18.se1', 'semo_18.se1', 'seas_18.se1']
-    uploaded_files = {}
-    
-    for filename in required_files:
-        uploaded_file = st.file_uploader(f"Upload {filename}", type=["se1"], key=filename)
-        if uploaded_file is not None:
-            uploaded_files[filename] = uploaded_file
-    
-    if uploaded_files and st.button("Save Uploaded Files"):
-        success_count = 0
-        for filename, file in uploaded_files.items():
-            try:
-                # Ensure the directory exists and is writable
-                if not os.path.isdir(EPHE_DIR):
-                    st.error(f"EPHE_DIR is not a directory: {EPHE_DIR}")
-                    continue
-                
-                # Create the file path
-                file_path = os.path.join(EPHE_DIR, filename)
-                
-                # Write the file
-                with open(file_path, "wb") as f:
-                    f.write(file.getbuffer())
-                
-                # Verify the file was written correctly
-                if os.path.exists(file_path) and os.path.getsize(file_path) > 0:
-                    st.success(f"✓ {filename} saved successfully")
-                    success_count += 1
-                else:
-                    st.error(f"Failed to save {filename}")
-                    
-            except Exception as e:
-                st.error(f"Error saving {filename}: {str(e)}")
-        
-        # Check if all files were saved
-        if success_count == len(required_files):
-            st.success("All required files have been uploaded and saved!")
-            return True
-        else:
-            st.error(f"Only {success_count} out of {len(required_files)} files were saved successfully")
-            return False
-    
-    return False
 
 # Initialize Swiss Ephemeris
-def initialize_swisseph():
+def init_swisseph():
     """Initialize Swiss Ephemeris with proper error handling"""
     try:
-        import swisseph as swe
-        # Set ephemeris path as bytes to avoid 'str' object not callable error
-        swe.set_ephe_path(EPHE_DIR.encode('utf-8'))
-        # Test with a simple calculation
+        # Create ephemeris directory if it doesn't exist
+        ephe_dir = os.path.join(os.path.dirname(__file__), 'ephe')
+        if not os.path.exists(ephe_dir):
+            os.makedirs(ephe_dir)
+        
+        # Set ephemeris path
+        swe.set_ephe_path(ephe_dir.encode('utf-8'))
+        # Test initialization
         swe.julday(2023, 1, 1)
-        return swe
+        return True
     except Exception as e:
         st.error(f"Swiss Ephemeris initialization failed: {str(e)}")
-        return None
+        return False
 
-# Try to initialize Swiss Ephemeris
-swe = initialize_swisseph()
-if swe is None:
-    st.info("Attempting to download required ephemeris files...")
-    
-    # Try automatic download
-    if download_ephemeris_files():
-        swe = initialize_swisseph()
-        if swe is None:
-            st.error("Still failed after downloading files. Please check the logs.")
-        else:
-            st.success("Swiss Ephemeris initialized successfully!")
-    
-    # If automatic download failed, try manual upload
-    if swe is None:
-        st.error("Automatic download failed. Please try manual upload.")
-        if manual_upload_files():
-            swe = initialize_swisseph()
-            if swe is None:
-                st.error("Still failed after uploading files. Please check the logs.")
-            else:
-                st.success("Swiss Ephemeris initialized successfully!")
-    
-    # If all methods failed, stop the app
-    if swe is None:
-        st.error("Failed to initialize Swiss Ephemeris. Please check the logs.")
-        st.stop()
+# Initialize if not already done
+if 'swisseph_initialized' not in st.session_state:
+    st.session_state.swisseph_initialized = init_swisseph()
 
-# Configure page
-st.set_page_config(page_title="Professional Astro Calculator", layout="wide")
-st.title("♁ Swiss Ephemeris Transit Calculator")
+# Page configuration
+st.set_page_config(
+    page_title="Astro Trading Dashboard",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
 
-def calculate_transits(date, lat, lon):
-    """Calculate precise planetary positions using Swiss Ephemeris"""
-    # Set up observer
-    jd = swe.julday(date.year, date.month, date.day, 12.0)  # Noon UTC
-    
-    # Calculate planet positions
-    planets = {
-        'Sun': swe.SUN,
-        'Moon': swe.MOON,
-        'Mercury': swe.MERCURY,
-        'Venus': swe.VENUS,
-        'Mars': swe.MARS,
-        'Jupiter': swe.JUPITER,
-        'Saturn': swe.SATURN,
-        'Rahu': swe.MEAN_NODE,  # North Node
-        'Ketu': -swe.MEAN_NODE   # South Node
+# Custom CSS for better styling
+st.markdown("""
+<style>
+    .main-header {
+        font-size: 2.5rem;
+        color: #1f77b4;
+        text-align: center;
+        margin-bottom: 1rem;
+    }
+    .signal-bullish {
+        color: #2ca02c;
+        font-weight: bold;
+    }
+    .signal-bearish {
+        color: #d62728;
+        font-weight: bold;
+    }
+    .signal-neutral {
+        color: #7f7f7f;
+        font-weight: bold;
+    }
+    .metric-card {
+        background-color: #f0f2f6;
+        padding: 1rem;
+        border-radius: 0.5rem;
+        margin-bottom: 1rem;
+    }
+    .timeline-dot {
+        height: 15px;
+        width: 15px;
+        border-radius: 50%;
+        display: inline-block;
+        margin-right: 5px;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+# Load watchlist
+def load_watchlist():
+    """Load your EYE FUTURE WATCHLIST"""
+    watchlist = {
+        'Nifty': '^NSEI',
+        'BankNifty': '^NSEBANK',
+        'Gold': 'GC=F',
+        'Crude': 'CL=F',
+        'Reliance': 'RELIANCE.NS',
+        'TCS': 'TCS.NS',
+        'HDFC Bank': 'HDFCBANK.NS',
+        'Infosys': 'INFY.NS',
+        'ICICI Bank': 'ICICIBANK.NS',
+        'Kotak Bank': 'KOTAKBANK.NS',
+        'Axis Bank': 'AXISBANK.NS',
+        'SBI': 'SBIN.NS',
+        'Wipro': 'WIPRO.NS',
+        'HCL Tech': 'HCLTECH.NS',
+        'Tech Mahindra': 'TECHM.NS',
+        'L&T': 'LT.NS',
+        'Bajaj Finance': 'BAJFINANCE.NS',
+        'HDFC': 'HDFC.NS',
+        'ITC': 'ITC.NS'
     }
     
-    results = []
-    for name, p in planets.items():
-        # Get precise position
-        flags = swe.FLG_SWIEPH | swe.FLG_SPEED
-        if p == swe.MEAN_NODE or p == -swe.MEAN_NODE:
-            flags |= swe.FLG_NOGDEFL
+    sectors = {
+        'Nifty': 'Index',
+        'BankNifty': 'Banking',
+        'Gold': 'Commodity',
+        'Crude': 'Commodity',
+        'Reliance': 'Energy',
+        'TCS': 'IT',
+        'HDFC Bank': 'Banking',
+        'Infosys': 'IT',
+        'ICICI Bank': 'Banking',
+        'Kotak Bank': 'Banking',
+        'Axis Bank': 'Banking',
+        'SBI': 'Banking',
+        'Wipro': 'IT',
+        'HCL Tech': 'IT',
+        'Tech Mahindra': 'IT',
+        'L&T': 'Infrastructure',
+        'Bajaj Finance': 'Financial',
+        'HDFC': 'Financial',
+        'ITC': 'FMCG'
+    }
+    
+    return watchlist, sectors
+
+# Calculate planetary positions
+def calculate_planetary_positions(date_time):
+    """Calculate planetary positions for given datetime"""
+    if not st.session_state.swisseph_initialized:
+        return {}
+    
+    try:
+        # Convert to Julian day
+        jd = swe.julday(
+            date_time.year, date_time.month, date_time.day,
+            date_time.hour + date_time.minute/60.0
+        )
         
-        pos, ret = swe.calc_ut(jd, p, flags=flags)
+        planets = {
+            'Sun': swe.SUN,
+            'Moon': swe.MOON,
+            'Mercury': swe.MERCURY,
+            'Venus': swe.VENUS,
+            'Mars': swe.MARS,
+            'Jupiter': swe.JUPITER,
+            'Saturn': swe.SATURN,
+            'Rahu': swe.MEAN_NODE,
+            'Ketu': -swe.MEAN_NODE
+        }
         
-        # Convert to zodiac position
-        sign_num = int(pos[0] / 30)
-        signs = ["Ari", "Tau", "Gem", "Can", "Leo", "Vir", 
-                "Lib", "Sco", "Sag", "Cap", "Aqu", "Pis"]
-        sign = signs[sign_num]
-        degree = pos[0] % 30
-        minutes = (degree - int(degree)) * 60
+        positions = {}
+        for name, planet_id in planets.items():
+            pos, _ = swe.calc_ut(jd, planet_id)
+            positions[name] = pos[0]  # Longitude
         
-        # House position (Placidus)
-        cusps, ascmc = swe.houses(jd, lat, lon, b'P')
-        house = swe.house_pos(cusps[0], pos[0], pos[1], lat, lon, b'P') + 1
+        return positions
+    except Exception as e:
+        st.error(f"Error calculating planetary positions: {str(e)}")
+        return {}
+
+# Calculate planetary aspects
+def calculate_planetary_aspects(positions):
+    """Calculate significant planetary aspects"""
+    aspects = []
+    
+    # Define aspect types and their orbs
+    aspect_types = {
+        'Conjunction': (0, 8),
+        'Opposition': (180, 8),
+        'Trine': (120, 6),
+        'Square': (90, 6),
+        'Sextile': (60, 4)
+    }
+    
+    planet_combinations = [
+        ('Sun', 'Moon'), ('Sun', 'Mercury'), ('Sun', 'Venus'), ('Sun', 'Mars'),
+        ('Sun', 'Jupiter'), ('Sun', 'Saturn'), ('Moon', 'Mercury'), ('Moon', 'Venus'),
+        ('Moon', 'Mars'), ('Moon', 'Jupiter'), ('Moon', 'Saturn'), ('Mercury', 'Venus'),
+        ('Mercury', 'Mars'), ('Mercury', 'Jupiter'), ('Mercury', 'Saturn'),
+        ('Venus', 'Mars'), ('Venus', 'Jupiter'), ('Venus', 'Saturn'),
+        ('Mars', 'Jupiter'), ('Mars', 'Saturn'), ('Jupiter', 'Saturn'),
+        ('Sun', 'Rahu'), ('Moon', 'Rahu'), ('Mars', 'Rahu'), ('Saturn', 'Rahu'),
+        ('Sun', 'Ketu'), ('Moon', 'Ketu'), ('Mars', 'Ketu'), ('Saturn', 'Ketu')
+    ]
+    
+    for planet1, planet2 in planet_combinations:
+        if planet1 in positions and planet2 in positions:
+            pos1 = positions[planet1]
+            pos2 = positions[planet2]
+            
+            # Calculate angular separation
+            angle = abs(pos1 - pos2)
+            if angle > 180:
+                angle = 360 - angle
+            
+            # Check for aspects
+            for aspect_name, (target_angle, orb) in aspect_types.items():
+                if abs(angle - target_angle) <= orb:
+                    # Calculate aspect strength (1.0 at exact aspect, 0.0 at orb limit)
+                    strength = 1.0 - (abs(angle - target_angle) / orb)
+                    
+                    aspects.append({
+                        'planet1': planet1,
+                        'planet2': planet2,
+                        'aspect': aspect_name,
+                        'angle': angle,
+                        'strength': strength,
+                        'orb_used': abs(angle - target_angle)
+                    })
+    
+    return aspects
+
+# Generate trading signals
+def generate_trading_signals(aspects, symbol, sector, current_time):
+    """Generate bullish/bearish signals based on planetary aspects"""
+    signals = []
+    
+    # Define aspect interpretations
+    bullish_aspects = [
+        ('Jupiter', 'Venus', 'any'),
+        ('Jupiter', 'Sun', 'any'),
+        ('Venus', 'Sun', 'any'),
+        ('Jupiter', 'Moon', 'Trine'),
+        ('Venus', 'Moon', 'Trine'),
+        ('Sun', 'Moon', 'Trine')
+    ]
+    
+    bearish_aspects = [
+        ('Saturn', 'Mars', 'any'),
+        ('Saturn', 'Sun', 'any'),
+        ('Mars', 'Saturn', 'any'),
+        ('Saturn', 'Moon', 'Square'),
+        ('Mars', 'Moon', 'Square'),
+        ('Rahu', 'Sun', 'any'),
+        ('Rahu', 'Moon', 'any'),
+        ('Ketu', 'Sun', 'any'),
+        ('Ketu', 'Moon', 'any')
+    ]
+    
+    # Sector-specific rules
+    sector_rules = {
+        'Banking': {
+            'bullish': [('Jupiter', 'any', 'Trine'), ('Venus', 'any', 'Trine')],
+            'bearish': [('Saturn', 'any', 'Square'), ('Mars', 'any', 'Square')]
+        },
+        'IT': {
+            'bullish': [('Mercury', 'any', 'Trine'), ('Jupiter', 'Mercury', 'any')],
+            'bearish': [('Saturn', 'Mercury', 'any'), ('Rahu', 'Mercury', 'any')]
+        },
+        'Energy': {
+            'bullish': [('Mars', 'any', 'Trine'), ('Sun', 'Mars', 'any')],
+            'bearish': [('Saturn', 'Mars', 'any'), ('Rahu', 'Mars', 'any')]
+        },
+        'Commodity': {
+            'bullish': [('Venus', 'any', 'Trine'), ('Jupiter', 'any', 'Trine')],
+            'bearish': [('Saturn', 'any', 'Square'), ('Mars', 'any', 'Square')]
+        },
+        'Financial': {
+            'bullish': [('Jupiter', 'any', 'Trine'), ('Venus', 'any', 'Trine')],
+            'bearish': [('Saturn', 'any', 'Square'), ('Rahu', 'any', 'Square')]
+        }
+    }
+    
+    # Check general aspects
+    for aspect in aspects:
+        p1, p2, aspect_type = aspect['planet1'], aspect['planet2'], aspect['aspect']
+        strength = aspect['strength']
         
-        results.append({
-            'Planet': name,
-            'Position': f"{int(degree)}°{int(minutes)}' {sign}",
-            'Speed': f"{pos[3]:.2f}°/day",
-            'Retrograde': "◀" if pos[3] < 0 else "▶",
-            'House': f"{int(house)}H",
-            'Constellation': get_nakshatra(pos[0])
+        # Check bullish signals
+        for bp1, bp2, btype in bullish_aspects:
+            if ((p1 == bp1 and p2 == bp2) or (p1 == bp2 and p2 == bp1)) and \
+               (btype == 'any' or aspect_type == btype):
+                signals.append({
+                    'type': 'bullish',
+                    'strength': strength,
+                    'reason': f"{p1}-{p2} {aspect_type}",
+                    'time': current_time.strftime("%H:%M")
+                })
+        
+        # Check bearish signals
+        for sp1, sp2, stype in bearish_aspects:
+            if ((p1 == sp1 and p2 == sp2) or (p1 == sp2 and p2 == sp1)) and \
+               (stype == 'any' or aspect_type == stype):
+                signals.append({
+                    'type': 'bearish',
+                    'strength': strength,
+                    'reason': f"{p1}-{p2} {aspect_type}",
+                    'time': current_time.strftime("%H:%M")
+                })
+    
+    # Check sector-specific rules
+    if sector in sector_rules:
+        for aspect in aspects:
+            p1, p2, aspect_type = aspect['planet1'], aspect['planet2'], aspect['aspect']
+            strength = aspect['strength']
+            
+            # Sector bullish
+            for bp1, btype, batype in sector_rules[sector]['bullish']:
+                if (p1 == bp1 or p2 == bp1) and (btype == 'any' or aspect_type == batype):
+                    signals.append({
+                        'type': 'bullish',
+                        'strength': strength * 1.2,  # Boost sector signals
+                        'reason': f"{sector}: {p1}-{p2} {aspect_type}",
+                        'time': current_time.strftime("%H:%M")
+                    })
+            
+            # Sector bearish
+            for sp1, stype, satype in sector_rules[sector]['bearish']:
+                if (p1 == sp1 or p2 == sp1) and (stype == 'any' or aspect_type == satype):
+                    signals.append({
+                        'type': 'bearish',
+                        'strength': strength * 1.2,  # Boost sector signals
+                        'reason': f"{sector}: {p1}-{p2} {aspect_type}",
+                        'time': current_time.strftime("%H:%M")
+                    })
+    
+    return signals
+
+# Get market data
+def get_market_data(symbol, ticker):
+    """Get current market data for a symbol"""
+    try:
+        ticker_data = yf.Ticker(ticker)
+        hist = ticker_data.history(period="2d")
+        
+        if len(hist) >= 2:
+            current_price = hist['Close'].iloc[-1]
+            prev_close = hist['Close'].iloc[-2]
+            change = current_price - prev_close
+            change_pct = (change / prev_close) * 100
+            
+            return {
+                'price': current_price,
+                'change': change,
+                'change_pct': change_pct,
+                'volume': hist['Volume'].iloc[-1] if 'Volume' in hist else None
+            }
+        else:
+            return {
+                'price': hist['Close'].iloc[-1] if len(hist) == 1 else None,
+                'change': None,
+                'change_pct': None,
+                'volume': None
+            }
+    except Exception as e:
+        return {
+            'price': None,
+            'change': None,
+            'change_pct': None,
+            'volume': None
+        }
+
+# Main dashboard
+def main():
+    st.markdown('<h1 class="main-header">🌌 Planetary Transit Trading Dashboard</h1>', unsafe_allow_html=True)
+    st.markdown('<p style="text-align:center; color:gray;">Real-time bullish/bearish signals based on planetary aspects</p>', unsafe_allow_html=True)
+    
+    # Load watchlist
+    watchlist, sectors = load_watchlist()
+    
+    # Sidebar controls
+    st.sidebar.header("Dashboard Controls")
+    
+    # Refresh settings
+    auto_refresh = st.sidebar.checkbox("Auto Refresh", value=True)
+    refresh_interval = st.sidebar.slider("Refresh Interval (seconds)", 30, 300, 60)
+    
+    # Sector filter
+    all_sectors = list(set(sectors.values()))
+    selected_sectors = st.sidebar.multiselect(
+        "Filter by Sector",
+        options=all_sectors,
+        default=all_sectors
+    )
+    
+    # Signal strength filter
+    min_strength = st.sidebar.slider("Minimum Signal Strength", 0.1, 1.0, 0.5)
+    
+    # Main content area
+    col1, col2, col3 = st.columns([3, 2, 2])
+    
+    # Current time
+    current_time = datetime.now()
+    
+    # Calculate planetary positions and aspects
+    positions = calculate_planetary_positions(current_time)
+    aspects = calculate_planetary_aspects(positions)
+    
+    # Generate signals for watchlist
+    signal_data = []
+    for symbol, ticker in watchlist.items():
+        sector = sectors.get(symbol, 'Unknown')
+        if sector not in selected_sectors:
+            continue
+            
+        # Get market data
+        market_data = get_market_data(symbol, ticker)
+        
+        # Generate signals
+        signals = generate_trading_signals(aspects, symbol, sector, current_time)
+        
+        # Filter signals by strength
+        signals = [s for s in signals if s['strength'] >= min_strength]
+        
+        # Calculate overall signal
+        bullish_strength = sum(s['strength'] for s in signals if s['type'] == 'bullish')
+        bearish_strength = sum(s['strength'] for s in signals if s['type'] == 'bearish')
+        
+        if bullish_strength > bearish_strength:
+            overall_signal = "🐂 Bullish"
+            signal_class = "signal-bullish"
+        elif bearish_strength > bullish_strength:
+            overall_signal = "🐻 Bearish"
+            signal_class = "signal-bearish"
+        else:
+            overall_signal = "⚖ Neutral"
+            signal_class = "signal-neutral"
+        
+        signal_data.append({
+            'Symbol': symbol,
+            'Sector': sector,
+            'Price': market_data['price'],
+            'Change %': market_data['change_pct'],
+            'Signal': overall_signal,
+            'Signal Class': signal_class,
+            'Bullish Strength': round(bullish_strength, 2),
+            'Bearish Strength': round(bearish_strength, 2),
+            'Recent Signals': ", ".join([f"{s['reason']} ({s['time']})" for s in signals[:3]]),
+            'Signals': signals
         })
     
-    return pd.DataFrame(results)
-
-def get_nakshatra(longitude):
-    """Calculate Vedic nakshatra (27 lunar mansions)"""
-    nakshatras = [
-        "Ashwini", "Bharani", "Krittika", "Rohini", "Mrigashira", 
-        "Ardra", "Punarvasu", "Pushya", "Ashlesha", "Magha", 
-        "Purva Phalguni", "Uttara Phalguni", "Hasta", "Chitra", 
-        "Swati", "Vishakha", "Anuradha", "Jyeshtha", "Mula", 
-        "Purva Ashadha", "Uttara Ashadha", "Shravana", "Dhanishta", 
-        "Shatabhisha", "Purva Bhadra", "Uttara Bhadra", "Revati"
-    ]
-    index = int((longitude * 27) / 360)
-    return nakshatras[index]
-
-# User Interface
-with st.sidebar:
-    st.header("Configuration")
-    selected_date = st.date_input("Date", datetime.today())
-    lat = st.number_input("Latitude", value=40.7128)  # New York City
-    lon = st.number_input("Longitude", value=-74.0060)
+    # Display signals table
+    with col1:
+        st.header("Watchlist Signals")
+        
+        if signal_data:
+            # Create DataFrame
+            signal_df = pd.DataFrame(signal_data)
+            
+            # Format columns
+            signal_df['Price'] = signal_df['Price'].apply(lambda x: f"₹{x:.2f}" if x is not None else "N/A")
+            signal_df['Change %'] = signal_df['Change %'].apply(lambda x: f"{x:.2f}%" if x is not None else "N/A")
+            
+            # Display with styling
+            st.dataframe(
+                signal_df.style.applymap(
+                    lambda x: f"color: {'green' if 'Bullish' in x else 'red' if 'Bearish' in x else 'gray'}",
+                    subset=['Signal']
+                ),
+                use_container_width=True,
+                height=600
+            )
+        else:
+            st.info("No signals generated for selected filters")
     
-    if st.button("Calculate Exact Positions"):
-        with st.spinner("Computing planetary data..."):
-            try:
-                transits = calculate_transits(selected_date, lat, lon)
+    # Display planetary aspects
+    with col2:
+        st.header("Planetary Aspects")
+        
+        if aspects:
+            aspect_df = pd.DataFrame(aspects)
+            aspect_df = aspect_df.sort_values('strength', ascending=False)
+            aspect_df['strength'] = aspect_df['strength'].apply(lambda x: f"{x:.2f}")
+            aspect_df['angle'] = aspect_df['angle'].apply(lambda x: f"{x:.1f}°")
+            
+            st.dataframe(
+                aspect_df[['planet1', 'planet2', 'aspect', 'angle', 'strength']],
+                use_container_width=True
+            )
+        else:
+            st.info("No significant aspects at this time")
+    
+    # Display sector overview
+    with col3:
+        st.header("Sector Overview")
+        
+        # Calculate sector sentiment
+        sector_sentiment = {}
+        for sector in selected_sectors:
+            sector_signals = [s for s in signal_data if s['Sector'] == sector]
+            if sector_signals:
+                bullish = sum(1 for s in sector_signals if "Bullish" in s['Signal'])
+                bearish = sum(1 for s in sector_signals if "Bearish" in s['Signal'])
+                neutral = len(sector_signals) - bullish - bearish
                 
-                # Display results
-                st.subheader(f"Planetary Positions for {selected_date.strftime('%B %d, %Y')}")
+                sector_sentiment[sector] = {
+                    'Bullish': bullish,
+                    'Bearish': bearish,
+                    'Neutral': neutral,
+                    'Total': len(sector_signals)
+                }
+        
+        if sector_sentiment:
+            sentiment_df = pd.DataFrame.from_dict(sector_sentiment, orient='index')
+            st.dataframe(sentiment_df, use_container_width=True)
+            
+            # Create pie chart
+            fig = px.pie(
+                values=[sum(d['Bullish'] for d in sector_sentiment.values()),
+                       sum(d['Bearish'] for d in sector_sentiment.values()),
+                       sum(d['Neutral'] for d in sector_sentiment.values())],
+                names=['Bullish', 'Bearish', 'Neutral'],
+                title="Overall Market Sentiment",
+                color_discrete_map={'Bullish': 'green', 'Bearish': 'red', 'Neutral': 'gray'}
+            )
+            fig.update_layout(height=300)
+            st.plotly_chart(fig, use_container_width=True)
+    
+    # Timeline section
+    st.header("Intraday Signal Timeline")
+    
+    # Generate timeline data for the day
+    timeline_data = []
+    start_time = current_time.replace(hour=9, minute=15, second=0, microsecond=0)  # Market open
+    end_time = current_time.replace(hour=15, minute=30, second=0, microsecond=0)    # Market close
+    
+    # Generate signals at 15-minute intervals
+    time_point = start_time
+    while time_point <= end_time and time_point <= current_time:
+        # Calculate positions at this time
+        positions_at_time = calculate_planetary_positions(time_point)
+        aspects_at_time = calculate_planetary_aspects(positions_at_time)
+        
+        # Generate signals for all symbols
+        for symbol, ticker in watchlist.items():
+            sector = sectors.get(symbol, 'Unknown')
+            if sector not in selected_sectors:
+                continue
                 
-                # Color formatting
-                def style_row(row):
-                    color = 'red' if row['Retrograde'] == '◀' else 'green'
-                    return [f'color: {color}' for _ in row]
-                
-                st.dataframe(
-                    transits.style.apply(style_row, axis=1),
-                    column_config={
-                        "Position": st.column_config.TextColumn(width="large"),
-                        "Speed": "Daily Speed"
-                    },
-                    use_container_width=True,
-                    hide_index=True
-                )
-                
-                # Additional info
-                st.info("◀ = Retrograde | ▶ = Direct Motion")
-                
-            except Exception as e:
-                st.error(f"Calculation error: {str(e)}")
+            signals = generate_trading_signals(aspects_at_time, symbol, sector, time_point)
+            signals = [s for s in signals if s['strength'] >= min_strength]
+            
+            for signal in signals:
+                timeline_data.append({
+                    'Time': time_point.strftime("%H:%M"),
+                    'Symbol': symbol,
+                    'Signal': signal['type'],
+                    'Strength': signal['strength'],
+                    'Reason': signal['reason']
+                })
+        
+        # Next time point
+        time_point += timedelta(minutes=15)
+    
+    # Display timeline
+    if timeline_data:
+        timeline_df = pd.DataFrame(timeline_data)
+        
+        # Create scatter plot
+        fig = px.scatter(
+            timeline_df,
+            x='Time',
+            y='Symbol',
+            color='Signal',
+            size='Strength',
+            color_discrete_map={'bullish': 'green', 'bearish': 'red'},
+            title="Signal Timeline Throughout the Day",
+            height=400
+        )
+        fig.update_layout(
+            xaxis_title="Time",
+            yaxis_title="Symbol",
+            showlegend=True
+        )
+        st.plotly_chart(fig, use_container_width=True)
+        
+        # Show recent signals in a table
+        st.subheader("Recent Signals")
+        recent_signals = sorted(timeline_data, key=lambda x: x['Time'], reverse=True)[:10]
+        recent_df = pd.DataFrame(recent_signals)
+        recent_df['Strength'] = recent_df['Strength'].apply(lambda x: f"{x:.2f}")
+        st.dataframe(recent_df, use_container_width=True)
+    else:
+        st.info("No signals generated in the timeline")
+    
+    # Auto-refresh
+    if auto_refresh:
+        st.session_state.last_refresh = time.time()
+        time_elapsed = time.time() - st.session_state.last_refresh
+        
+        if time_elapsed >= refresh_interval:
+            st.experimental_rerun()
+        
+        # Show refresh countdown
+        remaining_time = refresh_interval - time_elapsed
+        st.sidebar.markdown(f"**Next refresh in:** {int(remaining_time)} seconds")
 
-# Instructions
-with st.expander("Installation Guide"):
-    st.markdown("""
-    ### For Local Installation:
-    1. Install required packages:
-       ```bash
-       pip install streamlit pandas pyswisseph
-       ```
-    2. Download ephemeris files from [Astrodienst](https://www.astro.com/ftp/swisseph/ephe/)
-    3. Create an 'ephe' folder in your project directory
-    4. Place the downloaded files in the 'ephe' folder
-    
-    ### For Streamlit Cloud:
-    1. Create a requirements.txt with:
-       ```
-       streamlit
-       pandas
-       pyswisseph
-       ```
-    2. The app will attempt to automatically download required ephemeris files
-    3. If automatic download fails, use the manual upload option
-    
-    ### Manual Download Links:
-    If you need to download the files manually:
-    - [sepl_18.se1](https://github.com/aloistr/swisseph/raw/master/ephe/sepl_18.se1)
-    - [semo_18.se1](https://github.com/aloistr/swisseph/raw/master/ephe/semo_18.se1)
-    - [seas_18.se1](https://github.com/aloistr/swisseph/raw/master/ephe/seas_18.se1)
-    """)
- 
-st.caption(f"Using Swiss Ephemeris {swe.version()} | Data files: {swe.get_ephe_path()}")
+if __name__ == "__main__":
+    main()
