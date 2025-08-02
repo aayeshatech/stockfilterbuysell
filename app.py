@@ -25,39 +25,6 @@ PLANETARY_DATA = {
             {"time": "Market Open", "aspect": "Sun trine Jupiter", "quality": "Excellent"},
             {"time": "Afternoon", "aspect": "Mercury opposite Pluto", "quality": "Volatile"}
         ]
-    },
-    "2025-08-03": {
-        "retrograde": ["Mercury", "Pluto"],
-        "transits": [
-            {"planet": "Moon", "sign": "Virgo", "nakshatra": "Uttara Phalguni", "sectors": ["Healthcare", "Service"]},
-            {"planet": "Jupiter", "sign": "Pisces", "nakshatra": "Revati", "sectors": ["Pharma", "Shipping"]}
-        ],
-        "aspects": [
-            {"time": "9:30-11:30 AM", "aspect": "Venus sextile Mars", "quality": "Favorable"},
-            {"time": "2:00-4:00 PM", "aspect": "Sun square Moon", "quality": "Caution"}
-        ]
-    },
-    "2025-08-04": {
-        "retrograde": ["Mercury"],
-        "transits": [
-            {"planet": "Sun", "sign": "Leo", "nakshatra": "Purva Phalguni", "sectors": ["Luxury", "Entertainment"]},
-            {"planet": "Saturn", "sign": "Aquarius", "nakshatra": "Purva Bhadrapada", "sectors": ["Infrastructure", "Real Estate"]}
-        ],
-        "aspects": [
-            {"time": "Morning", "aspect": "Jupiter trine Saturn", "quality": "Stable"},
-            {"time": "Market Close", "aspect": "Mercury square Mars", "quality": "Avoid"}
-        ]
-    },
-    "2025-08-31": {
-        "retrograde": [],
-        "transits": [
-            {"planet": "Sun", "sign": "Leo", "nakshatra": "Purva Phalguni", "sectors": ["Luxury", "Entertainment"]},
-            {"planet": "Venus", "sign": "Cancer", "nakshatra": "Pushya", "sectors": ["Banking", "Real Estate"]}
-        ],
-        "aspects": [
-            {"time": "All day", "aspect": "Venus conjunct Sun", "quality": "Excellent"},
-            {"time": "Afternoon", "aspect": "Moon sextile Jupiter", "quality": "Good"}
-        ]
     }
 }
 
@@ -65,12 +32,7 @@ PLANETARY_DATA = {
 STOCKS_DB = [
     {"symbol": "RELIANCE", "sector": "Oil", "nakshatra": "Ashlesha"},
     {"symbol": "DIVISLAB", "sector": "Pharma", "nakshatra": "Revati"},
-    {"symbol": "TATASTEEL", "sector": "Metals", "nakshatra": "Rohini"},
-    {"symbol": "INFY", "sector": "Technology", "nakshatra": "Ardra"},
-    {"symbol": "SUNPHARMA", "sector": "Pharma", "nakshatra": "Ashwini"},
-    {"symbol": "HDFCBANK", "sector": "Banking", "nakshatra": "Pushya"},
-    {"symbol": "DLF", "sector": "Real Estate", "nakshatra": "Purva Bhadrapada"},
-    {"symbol": "TATAMOTORS", "sector": "Automobiles", "nakshatra": "Mrigashira"}
+    {"symbol": "TATASTEEL", "sector": "Metals", "nakshatra": "Rohini"}
 ]
 
 def get_recommendations(date):
@@ -175,18 +137,10 @@ def main():
             hide_index=True,
             use_container_width=True
         )
-        
-        # Additional interpretation
-        with st.expander("📜 Interpretation Guide"):
-            st.markdown("""
-            - ⭐ Excellent: Highly favorable for investments
-            - ✔️ Good: Generally positive conditions  
-            - ❌ Avoid: Challenging aspects, better to wait
-            """)
     else:
         st.info("No significant aspects recorded for this date")
     
-    st.caption(f"Analysis for {selected_date.strftime('%B %d, %Y')} | Updated: {datetime.now().strftime('%Y-%m-%d %H:%M')}")
+    st.caption(f"Analysis for {selected_date.strftime('%B %d, %Y')}")
 
 if __name__ == "__main__":
     main()
