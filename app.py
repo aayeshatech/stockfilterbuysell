@@ -588,8 +588,8 @@ def format_recommendation_badge(recommendation_class, recommendation):
 # Generate complete report for selected date
 def generate_complete_report(selected_date, watchlist, sectors):
     """Generate complete astrological report for selected date"""
-    # Use noon time for the report
-    report_time = selected_date.replace(hour=12, minute=0, second=0, microsecond=0)
+    # Convert date to datetime object at noon
+    report_time = datetime.combine(selected_date, datetime.min.time()) + timedelta(hours=12)
     
     # Calculate planetary positions and aspects
     positions = calculate_planetary_positions(report_time)
