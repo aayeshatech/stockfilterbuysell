@@ -1,60 +1,30 @@
-"""Astro-Trading Dashboard with Real-time Planetary Data"""
+"""Astro-Trading Dashboard with Sample Planetary Data"""
 import streamlit as st
-import requests
 from datetime import datetime
 import pandas as pd
-import yfinance as yf
 import plotly.graph_objects as go
-from typing import Dict, List
 
-# Configure API - replace with your actual API key
-ASTRONOMICS_API = "https://data.astronomics.ai/almanac/"
-HEADERS = {"Authorization": "Bearer YOUR_API_KEY"}
-
-# Default symbols and planet mappings
-DEFAULT_SYMBOLS = [
-    "GC=F", "SI=F", "CL=F", "NG=F", 
-    "BTC-USD", "^DJI", "^GSPC", "^IXIC",
-    "AAPL", "MSFT", "TSLA", "NVDA", "AMZN"
-]
-
-PLANET_MAPPING = {
-    "GC=F": "Sun", "SI=F": "Moon", "CL=F": "Mars", "NG=F": "Venus",
-    "BTC-USD": "Uranus", "^DJI": "Jupiter", "^GSPC": "Saturn", 
-    "^IXIC": "Mercury", "AAPL": "Mercury", "MSFT": "Saturn",
-    "TSLA": "Uranus", "NVDA": "Mars", "AMZN": "Jupiter"
-}
-
-@st.cache_data(ttl=3600)
-def fetch_transit_data(date: datetime) -> pd.DataFrame:
-    """Fetch planetary transit data from API"""
+# Sample planetary data
+def get_sample_transit_data(date: datetime) -> pd.DataFrame:
+    """Generate sample planetary transit data"""
+    sample_data = {
+        "2023-01-01": [
+            ["Sun", "00:00:00", "D", "Capricorn", 280, "Uttara Ashadha", 4, 0.0],
+            ["Moon", "00:00:00", "D", "Gemini", 60, "Ardra", 1, 0.0],
+            ["Mars", "00:00:00", "D", "Gemini", 75, "Punarvasu", 1, 0.0],
+            ["Mercury", "00:00:00", "R", "Sagittarius", 240, "Purva Ashadha", 3, 0.0],
+            ["Jupiter", "00:00:00", "D", "Pisces", 350, "Revati", 4, 0.0],
+            ["Venus", "00:00:00", "D", "Capricorn", 290, "Uttara Ashadha", 4, 0.0],
+            ["Saturn", "00:00:00", "D", "Aquarius", 320, "Purva Bhadrapada", 2, 0.0]
+        ]
+    }
     date_str = date.strftime("%Y-%m-%d")
-    try:
-        response = requests.get(
-            f"{ASTRONOMICS_API}{date_str}",
-            headers=HEADERS,
-            timeout=10
-        )
-        response.raise_for_status()
-        data = response.json()
-        
-        transits = []
-        for planet_data in data.get("planets", []):
-            transits.append({
-                "Planet": planet_data["name"],
-                "Time": planet_data["time"],
-                "Zodiac": planet_data["zodiac"]["sign"],
-                "Degree": planet_data["zodiac"]["degree"],
-                "Nakshatra": planet_data["nakshatra"]["name"],
-                "Pada": planet_data["nakshatra"]["pada"],
-                "Motion": "R" if planet_data.get("is_retrograde", False) else "D",
-                "House": planet_data.get("house", 1),
-                "Declination": planet_data.get("declination", 0)
-            })
-        return pd.DataFrame(transits)
-    except Exception as e:
-        st.error(f"Failed to fetch transit data: {str(e)}")
-        return pd.DataFrame()
+    if date_str in sample_data:
+        return pd.DataFrame(sample_data[date_str], columns=[
+            "Planet", "Time", "Motion", "Zodiac", "Degree", 
+            "Nakshatra", "Pada", "Declination"
+        ])
+    return pd.DataFrame()
 
 def plot_planetary_positions(transits: pd.DataFrame):
     """Create polar plot of planetary positions"""
@@ -84,8 +54,9 @@ def plot_planetary_positions(transits: pd.DataFrame):
                 rotation=90,
                 period=360,
                 tickvals=list(range(0, 360, 30))
+            ),
+            radialaxis=dict(visible=False)
         ),
-        radialaxis=dict(visible=False),
         showlegend=True,
         height=500
     )
@@ -99,27 +70,20 @@ def main():
         initial_sidebar_state="expanded"
     )
     
-    st.title("🌌 Planetary Transit Trading System")
+    st.title("🌌 Planetary Transit Visualization (Sample Data)")
     
-    with st.sidebar:
-        st.header("Configuration")
-        analysis_date = st.date_input("Select Date", datetime.now())
-        
-        st.header("Watchlist")
-        watchlist = st.text_area(
-            "Enter symbols (one per line)",
-            "\n".join(DEFAULT_SYMBOLS),
-            height=200
-        )
-        watchlist = [s.strip() for s in watchlist.split("\n") if s.strip()]
+    # Date selection
+    analysis_date = st.date_input("Select Date", datetime(2023, 1, 1))
     
-    transits = fetch_transit_data(analysis_date)
+    # Get sample data
+    transits = get_sample_transit_data(analysis_date)
     
     if not transits.empty:
         plot_planetary_positions(transits)
+        st.subheader("Planetary Transit Data")
         st.dataframe(transits, use_container_width=True)
     else:
-        st.warning("No transit data available for selected date")
+        st.warning("Sample data only available for January 1, 2023")
 
 if __name__ == "__main__":
     main()
