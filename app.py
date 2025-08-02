@@ -7,6 +7,8 @@ import os
 import math
 from typing import Dict, Optional, List
 import pytz
+import requests
+from bs4 import BeautifulSoup
 
 # Try importing optional packages
 try:
@@ -319,8 +321,106 @@ st.markdown("""
     .planetary-position-table tr:nth-child(even) {
         background-color: #f9f9f9;
     }
+    .data-source {
+        font-size: 0.8rem;
+        color: #666;
+        font-style: italic;
+        margin-top: 0.5rem;
+    }
 </style>
 """, unsafe_allow_html=True)
+
+# Function to fetch planetary data from the website
+def fetch_planetary_data_from_website(date):
+    """
+    Fetch planetary data from astronomics.ai for a given date
+    Returns a dictionary with planetary positions and aspects
+    """
+    try:
+        # Format the date for the URL
+        date_str = date.strftime("%Y-%m-%d")
+        url = f"https://data.astronomics.ai/almanac/{date_str}"
+        
+        # Send a request to the website
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        }
+        
+        response = requests.get(url, headers=headers, timeout=10)
+        
+        # Check if the request was successful
+        if response.status_code == 200:
+            # Parse the HTML content
+            soup = BeautifulSoup(response.text, 'html.parser')
+            
+            # Extract planetary positions (this will depend on the actual structure of the website)
+            # This is a generic approach - you may need to adjust based on the actual HTML structure
+            planetary_data = {}
+            
+            # Look for tables containing planetary data
+            tables = soup.find_all('table')
+            
+            for table in tables:
+                # Check if this table contains planetary data
+                headers = [th.text.strip() for th in table.find_all('th')]
+                
+                if 'Planet' in headers and 'Zodiac' in headers:
+                    # Extract rows
+                    rows = table.find_all('tr')[1:]  # Skip header row
+                    
+                    for row in rows:
+                        cells = row.find_all('td')
+                        if len(cells) >= 2:
+                            planet = cells[0].text.strip()
+                            zodiac = cells[1].text.strip()
+                            
+                            # Extract additional data if available
+                            motion = cells[2].text.strip() if len(cells) > 2 else ""
+                            nakshatra = cells[3].text.strip() if len(cells) > 3 else ""
+                            pada = cells[4].text.strip() if len(cells) > 4 else ""
+                            
+                            # Store the data
+                            planetary_data[planet] = {
+                                'zodiac': zodiac,
+                                'motion': motion,
+                                'nakshatra': nakshatra,
+                                'pada': pada
+                            }
+            
+            # Extract planetary aspects if available
+            aspects = []
+            aspect_tables = soup.find_all('table', class_='aspect-table')  # Adjust class as needed
+            
+            for table in aspect_tables:
+                rows = table.find_all('tr')[1:]  # Skip header row
+                
+                for row in rows:
+                    cells = row.find_all('td')
+                    if len(cells) >= 3:
+                        planet1 = cells[0].text.strip()
+                        planet2 = cells[1].text.strip()
+                        aspect_type = cells[2].text.strip()
+                        strength = float(cells[3].text.strip()) if len(cells) > 3 else 0.5
+                        
+                        aspects.append({
+                            'planet1': planet1,
+                            'planet2': planet2,
+                            'aspect': aspect_type,
+                            'strength': strength
+                        })
+            
+            return {
+                'planetary_positions': planetary_data,
+                'aspects': aspects,
+                'source': 'astronomics.ai'
+            }
+        else:
+            st.warning(f"Failed to fetch data from astronomics.ai. Status code: {response.status_code}")
+            return None
+            
+    except Exception as e:
+        st.warning(f"Error fetching data from astronomics.ai: {str(e)}")
+        return None
 
 # Load watchlist
 def load_watchlist():
@@ -478,9 +578,9 @@ def calculate_planetary_positions_detailed(date_time):
             
             # Format position in zodiac
             deg = int(longitude % 30)
-            min = int((longitude % 30 - deg) * 60)
-            sec = int(((longitude % 30 - deg) * 60 - min) * 60)
-            pos_in_zodiac = f"{deg:02d}°{min:02d}'{sec:02d}\""
+            min_val = int((longitude % 30 - deg) * 60)
+            sec = int(((longitude % 30 - deg) * 60 - min_val) * 60)
+            pos_in_zodiac = f"{deg:02d}°{min_val:02d}'{sec:02d}\""
             
             # Determine motion (direct or retrograde)
             motion = "D" if ret >= 0 else "R"
@@ -712,7 +812,7 @@ def generate_special_symbol_signals(aspects, symbol, current_time):
     }
 
 # Generate special transit report for Nifty, BankNifty, and Gold
-def generate_special_transit_report(selected_date, watchlist, sectors, selected_time_slot=None):
+def generate_special_transit_report(selected_date, watchlist, sectors, selected_time_slot=None, data_source=None):
     """Generate special transit report for Nifty, BankNifty, and Gold in table format"""
     # Get trading time slots
     time_slots = get_trading_time_slots()
@@ -735,9 +835,16 @@ def generate_special_transit_report(selected_date, watchlist, sectors, selected_
         # Create datetime objects for the time slot
         start_time = datetime.combine(selected_date, datetime.min.time()) + timedelta(hours=start_hour, minutes=start_minute)
         
-        # Calculate detailed planetary positions and aspects for the start of the time slot
-        positions = calculate_planetary_positions_detailed(start_time)
-        aspects = calculate_planetary_aspects(positions)
+        # Use data from website if available, otherwise calculate locally
+        if data_source and 'planetary_positions' in data_source and 'aspects' in data_source:
+            positions = data_source['planetary_positions']
+            aspects = data_source['aspects']
+            source = data_source.get('source', 'local')
+        else:
+            # Calculate detailed planetary positions and aspects for the start of the time slot
+            positions = calculate_planetary_positions_detailed(start_time)
+            aspects = calculate_planetary_aspects(positions)
+            source = 'local'
         
         # Generate signals for each special symbol
         for symbol in special_symbols:
@@ -754,7 +861,8 @@ def generate_special_transit_report(selected_date, watchlist, sectors, selected_
                 'Bullish Strength': signal_data['bullish_strength'],
                 'Bearish Strength': signal_data['bearish_strength'],
                 'All Aspects': signal_data['all_aspects'],
-                'Planetary Positions': positions
+                'Planetary Positions': positions,
+                'Data Source': source
             })
     
     return report_data
@@ -825,6 +933,13 @@ def main():
     # Sidebar controls
     st.sidebar.header("Dashboard Controls")
     
+    # Data source selection
+    data_source_option = st.sidebar.selectbox(
+        "Select Data Source",
+        options=["Local Calculation", "Astronomics.ai (if available)"],
+        index=0
+    )
+    
     # Time slot selector
     time_slots = get_trading_time_slots()
     time_slot_options = ["All Time Slots"] + [f"{start} - {end}" for start, end in time_slots]
@@ -854,9 +969,15 @@ def main():
         report_time = datetime.now(pytz.timezone('Asia/Kolkata')).strftime("%H:%M:%S")
         st.markdown(f'<div class="report-header">📊 Daily Astrological Report for {selected_date.strftime("%B %d, %Y")} (Generated at {report_time})</div>', unsafe_allow_html=True)
         
+        # Fetch data from website if selected
+        data_source = None
+        if data_source_option == "Astronomics.ai (if available)":
+            with st.spinner("Fetching data from astronomics.ai..."):
+                data_source = fetch_planetary_data_from_website(selected_date)
+        
         # Generate special transit report
         with st.spinner("Generating special transit report..."):
-            special_report_data = generate_special_transit_report(selected_date, watchlist, sectors, selected_time_slot)
+            special_report_data = generate_special_transit_report(selected_date, watchlist, sectors, selected_time_slot, data_source)
         
         # Create tabs for different views
         tab1, tab2, tab3 = st.tabs(["Special Transit Report", "Planetary Positions", "Detailed Analysis"])
@@ -909,6 +1030,11 @@ def main():
                 </table>
                 """, unsafe_allow_html=True)
                 
+                # Show data source
+                if special_report_data:
+                    source = special_report_data[0].get('Data Source', 'local')
+                    st.markdown(f'<div class="data-source">Data source: {source}</div>', unsafe_allow_html=True)
+                
                 # Show signal strength summary
                 st.subheader("Signal Strength Summary")
                 
@@ -955,7 +1081,29 @@ def main():
             start_hour, start_minute = map(int, start_time_str.split(':'))
             start_time = datetime.combine(selected_date, datetime.min.time()) + timedelta(hours=start_hour, minutes=start_minute)
             
-            positions = calculate_planetary_positions_detailed(start_time)
+            # Use data from website if available, otherwise calculate locally
+            if data_source and 'planetary_positions' in data_source:
+                positions = data_source['planetary_positions']
+                source = data_source.get('source', 'local')
+                
+                # Convert website data to our format
+                formatted_positions = {}
+                for planet, data in positions.items():
+                    formatted_positions[planet] = {
+                        'zodiac': data.get('zodiac', ''),
+                        'nakshatra': data.get('nakshatra', ''),
+                        'pada': data.get('pada', 1),
+                        'pos_in_zodiac': '00°00\'00"',  # Placeholder
+                        'motion': data.get('motion', 'D'),
+                        'sign_lord': '',  # Placeholder
+                        'star_lord': '',  # Placeholder
+                        'sub_lord': '',  # Placeholder
+                        'declination': 0.0  # Placeholder
+                    }
+                positions = formatted_positions
+            else:
+                positions = calculate_planetary_positions_detailed(start_time)
+                source = 'local'
             
             if positions:
                 # Create detailed positions table
@@ -1022,6 +1170,9 @@ def main():
                     </tbody>
                 </table>
                 """, unsafe_allow_html=True)
+                
+                # Show data source
+                st.markdown(f'<div class="data-source">Data source: {source}</div>', unsafe_allow_html=True)
             else:
                 st.info("Planetary positions not available")
         
@@ -1037,8 +1188,27 @@ def main():
             start_hour, start_minute = map(int, start_time_str.split(':'))
             start_time = datetime.combine(selected_date, datetime.min.time()) + timedelta(hours=start_hour, minutes=start_minute)
             
-            positions = calculate_planetary_positions_detailed(start_time)
-            aspects = calculate_planetary_aspects(positions)
+            # Use data from website if available, otherwise calculate locally
+            if data_source and 'aspects' in data_source:
+                aspects = data_source['aspects']
+                source = data_source.get('source', 'local')
+                
+                # Convert website data to our format
+                formatted_aspects = []
+                for aspect in aspects:
+                    formatted_aspects.append({
+                        'planet1': aspect['planet1'],
+                        'planet2': aspect['planet2'],
+                        'aspect': aspect['aspect'],
+                        'angle': 0.0,  # Placeholder
+                        'strength': aspect['strength'],
+                        'orb_used': 0.0  # Placeholder
+                    })
+                aspects = formatted_aspects
+            else:
+                positions = calculate_planetary_positions_detailed(start_time)
+                aspects = calculate_planetary_aspects(positions)
+                source = 'local'
             
             if aspects:
                 # Create detailed aspects table
@@ -1066,6 +1236,9 @@ def main():
                     aspect_df.style.applymap(highlight_type, subset=['Type']),
                     use_container_width=True
                 )
+                
+                # Show data source
+                st.markdown(f'<div class="data-source">Data source: {source}</div>', unsafe_allow_html=True)
             else:
                 st.info("No significant aspects at this time")
             
@@ -1086,8 +1259,12 @@ def main():
                 start_time = datetime.combine(selected_date, datetime.min.time()) + timedelta(hours=start_hour, minutes=start_minute)
                 
                 # Calculate planetary positions and aspects
-                positions = calculate_planetary_positions_detailed(start_time)
-                aspects = calculate_planetary_aspects(positions)
+                if data_source and 'planetary_positions' in data_source and 'aspects' in data_source:
+                    positions = data_source['planetary_positions']
+                    aspects = data_source['aspects']
+                else:
+                    positions = calculate_planetary_positions_detailed(start_time)
+                    aspects = calculate_planetary_aspects(positions)
                 
                 # Generate signals
                 signal_data = generate_special_symbol_signals(aspects, analysis_symbol, start_time)
